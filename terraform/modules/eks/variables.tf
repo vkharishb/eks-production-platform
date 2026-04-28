@@ -32,7 +32,7 @@ variable "max_size" {
 variable "instance_types" {
     description = "A list of instance types for the worker nodes in the EKS cluster"
     type        = list(string)
-    default     = ["t3.medium"]
+    default     = ["t3.micro"]
 }
 variable "tags" {
     description = "A map of tags to apply to the EKS cluster"
