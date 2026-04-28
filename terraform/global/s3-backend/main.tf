@@ -12,7 +12,7 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "tf_state" {
-  bucket = var.bucket_name
+  bucket = "${var.project_name}-tf-state-${var.env}"
 
   tags = {
     Name = "Terraform State"
@@ -52,7 +52,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
 
 # 🔁 DynamoDB for locking
 resource "aws_dynamodb_table" "lock" {
-  name         = var.dynamodb_table
+  name         = "${var.project_name}-tf-state-lock-${var.env}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"
 

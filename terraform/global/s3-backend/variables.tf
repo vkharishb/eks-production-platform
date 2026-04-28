@@ -1,16 +1,12 @@
 variable "region" {
-  default = "ap-south-2"
-}
-
-variable "bucket_name" {
-  description = "Globally unique S3 bucket name"
-  default     = "eks-dev-tf-state-bucket"
-}
-
-variable "dynamodb_table" {
-  default = "eks-dev-tf-state-lock"
+  default = "ap-south-1"
 }
 
 variable "env" {
-  default = "global"
+  default = "dev"
+}
+variable "project_name" {
+  description = "Name of the project"
+  default = "eks-production-platform"
+  
 }
