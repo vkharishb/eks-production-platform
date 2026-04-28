@@ -9,11 +9,6 @@ variable "cluster_version" {
     type        = string
     default     = "1.29"
 }
-variable "subnet_ids" {
-    description = "A list of subnet IDs for the EKS cluster"
-    type        = list(string)
-    default     = []
-}
 
 variable "vpc_id" {
     description = "The VPC ID for the EKS cluster"
@@ -42,4 +37,8 @@ variable "instance_types" {
 variable "tags" {
     description = "A map of tags to apply to the EKS cluster"
     type        = map(string)
+}
+variable "private_subnets" {
+  type        = list(string)
+  description = "Private subnet IDs passed into the module."
 }

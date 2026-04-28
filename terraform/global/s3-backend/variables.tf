@@ -4,11 +4,11 @@ variable "region" {
 
 variable "bucket_name" {
   description = "Globally unique S3 bucket name"
-  default = "eks-tf-state-bucket"
+  default     = "eks-dev-tf-state-bucket-ap-south-1"
 }
 
 variable "dynamodb_table" {
-  default = "terraform-lock"
+  default = "eks-dev-tf-state-lock"
 }
 
 variable "env" {
