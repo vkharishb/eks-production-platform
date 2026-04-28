@@ -11,9 +11,9 @@ module "vpc" {
 
   single_nat_gateway = true
 
-    tags = {
-        env = "dev"
-    }
+  tags = {
+    env = "dev"
+  }
 }
 
 module "eks" {
@@ -22,7 +22,7 @@ module "eks" {
   cluster_name    = "eks-dev"
   cluster_version = "1.29"
 
-  vpc_id     = module.vpc.vpc_id
+  vpc_id          = module.vpc.vpc_id
   private_subnets = module.vpc.private_subnets
 
   tags = {

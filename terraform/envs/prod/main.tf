@@ -1,30 +1,31 @@
 module "vpc" {
   source = "../../modules/vpc"
 
-  name = "eks-prod"
-  cidr = "10.1.0.0/16"
+  name = "eks-dev"
+  cidr = "10.0.0.0/16"
 
-  azs = ["ap-south-1a", "ap-south-1b", "ap-south-1c"]
+  azs = ["ap-south-1a", "ap-south-1b"]
 
-  private_subnets = ["10.1.10.0/24", "10.1.20.0/24", "10.1.30.0/24"]
-  public_subnets  = ["10.1.1.0/24", "10.1.2.0/24", "10.1.3.0/24"]
+  private_subnets = ["10.0.10.0/24", "10.0.20.0/24"]
+  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
 
-  single_nat_gateway = false
+  single_nat_gateway = true
 
   tags = {
-        env = "prod"
-    }
+    env = "dev"
+  }
 }
 
 module "eks" {
   source = "../../modules/eks"
 
-  cluster_name = "eks-prod"
+  cluster_name    = "eks-dev"
+  cluster_version = "1.29"
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  vpc_id          = module.vpc.vpc_id
+  private_subnets = module.vpc.private_subnets
 
   tags = {
-        env = "prod"
-    }
+    env = "dev"
+  }
 }
