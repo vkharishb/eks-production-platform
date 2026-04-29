@@ -1,7 +1,7 @@
 module "vpc" {
   source = "../../modules/vpc"
 
-  name = "eks-dev"
+  name = "${var.project_name}-${var.env}-vpc"
   cidr = "10.0.0.0/16"
 
   azs = ["ap-south-2a", "ap-south-2b"]
@@ -19,7 +19,8 @@ module "vpc" {
 module "eks" {
   source = "../../modules/eks"
 
-  cluster_name    = "eks-dev"
+  cluster_name = "${var.project_name}-eks-cluster-${var.env}"
+
   cluster_version = "1.32"
 
   vpc_id          = module.vpc.vpc_id
@@ -31,4 +32,14 @@ module "eks" {
   tags = {
     env = "dev"
   }
+}
+
+variable "project_name" {
+  description = "Name of the project"
+  default     = "eks"
+}
+
+variable "env" {
+  description = "Deployment environment"
+  default     = "dev"
 }
