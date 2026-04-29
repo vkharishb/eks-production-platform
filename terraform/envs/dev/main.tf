@@ -30,8 +30,8 @@ module "eks" {
   min_size     = 1
   max_size     = 3
 
-  instance_types = ["t3.medium"]  # t3a.medium not available in ap-south-2
-  capacity_type  = "ON_DEMAND"    # SPOT has no capacity in ap-south-2
+  instance_types = ["t3.micro"] # t3a.medium not available in ap-south-2
+  capacity_type  = "ON_DEMAND"   # SPOT has no capacity in ap-south-2
 
   tags = {
     env = "dev"
