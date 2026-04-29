@@ -29,7 +29,7 @@ variable "capacity_type" {
 variable "instance_types" {
   description = "List of instance types for worker nodes"
   type        = list(string)
-  default     = ["t3.micro","t3.medium", "t3.large", "t3a.medium"]
+  default     = ["t3.medium"]
 }
 
 variable "desired_size" {

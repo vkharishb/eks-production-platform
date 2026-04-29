@@ -22,7 +22,8 @@ module "eks" {
   cluster_name = "${var.project_name}-eks-cluster-${var.env}"
 
   cluster_version = "1.32"
-
+  instance_types = ["t3.medium"]
+  capacity_type  = "ON_DEMAND" 
   vpc_id          = module.vpc.vpc_id
   private_subnets = module.vpc.private_subnets
   desired_size    = 1
