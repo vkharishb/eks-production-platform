@@ -23,13 +23,13 @@ variable "private_subnets" {
 variable "capacity_type" {
   description = "Capacity type for node group: ON_DEMAND or SPOT"
   type        = string
-  default     = "SPOT"
+  default     = "ON_DEMAND" # changed from SPOT — ap-south-2 has no SPOT capacity
 }
 
 variable "instance_types" {
   description = "List of instance types for worker nodes"
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.medium"] # removed t3a.medium (not available in ap-south-2), t3.micro (too small for EKS)
 }
 
 variable "desired_size" {

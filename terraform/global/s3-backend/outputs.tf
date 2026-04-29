@@ -1,8 +1,9 @@
-
 output "bucket_name" {
-  value = aws_s3_bucket.tf_state.id
+  description = "S3 bucket name for Terraform state"
+  value       = aws_s3_bucket.tf_state.id
 }
 
 output "dynamodb_table" {
-  value = aws_dynamodb_table.lock.name
+  description = "DynamoDB table name for state locking"
+  value       = aws_dynamodb_table.lock.name
 }

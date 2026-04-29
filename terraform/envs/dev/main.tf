@@ -10,6 +10,7 @@ module "vpc" {
   public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
 
   enable_nat_gateway = true
+  single_nat_gateway = true # single NAT = cheaper for dev/showcase
 
   tags = {
     env = "dev"
@@ -19,16 +20,18 @@ module "vpc" {
 module "eks" {
   source = "../../modules/eks"
 
-  cluster_name = "${var.project_name}-eks-cluster-${var.env}"
-
+  cluster_name    = "${var.project_name}-eks-cluster-${var.env}"
   cluster_version = "1.32"
-  instance_types = ["t3.medium"]
-  capacity_type  = "ON_DEMAND" 
+
   vpc_id          = module.vpc.vpc_id
   private_subnets = module.vpc.private_subnets
-  desired_size    = 1
-  min_size        = 1
-  max_size        = 3
+
+  desired_size = 1
+  min_size     = 1
+  max_size     = 3
+
+  instance_types = ["t3.medium"]  # t3a.medium not available in ap-south-2
+  capacity_type  = "ON_DEMAND"    # SPOT has no capacity in ap-south-2
 
   tags = {
     env = "dev"

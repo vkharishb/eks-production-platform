@@ -21,7 +21,9 @@ module "eks" {
       instance_types = var.instance_types
       capacity_type  = var.capacity_type
 
-      # Required labels for cluster autoscaler (good practice)
+      # Wire in the IAM role we create in iam.tf
+      iam_role_arn = aws_iam_role.eks_nodes.arn
+
       labels = {
         role = "general"
       }

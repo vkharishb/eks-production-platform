@@ -13,7 +13,7 @@ variable "cidr" {
 variable "azs" {
   description = "Availability zones to use"
   type        = list(string)
-  default     = ["ap-south-1a", "ap-south-1b"]
+  default     = ["ap-south-2a", "ap-south-2b"] # fixed: was ap-south-1
 }
 
 variable "private_subnets" {
@@ -37,7 +37,7 @@ variable "enable_nat_gateway" {
 variable "single_nat_gateway" {
   description = "Use a single NAT gateway (cheaper for dev)"
   type        = bool
-  default     = true # default true to save cost
+  default     = true
 }
 
 variable "tags" {

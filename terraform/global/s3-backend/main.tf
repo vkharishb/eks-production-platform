@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 6.0"
+      version = "~> 5.95"
     }
   }
 }
@@ -20,7 +20,7 @@ resource "aws_s3_bucket" "tf_state" {
   }
 }
 
-# 🔒 Block public access (mandatory)
+# Block public access (mandatory)
 resource "aws_s3_bucket_public_access_block" "block" {
   bucket = aws_s3_bucket.tf_state.id
 
@@ -30,7 +30,7 @@ resource "aws_s3_bucket_public_access_block" "block" {
   restrict_public_buckets = true
 }
 
-# 🔐 Enable versioning
+# Enable versioning
 resource "aws_s3_bucket_versioning" "versioning" {
   bucket = aws_s3_bucket.tf_state.id
 
@@ -39,7 +39,7 @@ resource "aws_s3_bucket_versioning" "versioning" {
   }
 }
 
-# 🔐 Enable encryption
+# Enable encryption
 resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
   bucket = aws_s3_bucket.tf_state.id
 
@@ -50,7 +50,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
   }
 }
 
-# 🔁 DynamoDB for locking
+# DynamoDB for state locking
 resource "aws_dynamodb_table" "lock" {
   name         = "${var.project_name}-tf-state-lock-${var.env}"
   billing_mode = "PAY_PER_REQUEST"
