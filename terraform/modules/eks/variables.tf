@@ -29,7 +29,7 @@ variable "capacity_type" {
 variable "instance_types" {
   description = "List of instance types for worker nodes"
   type        = list(string)
-  default     = ["t3.micrp"] # removed t3a.medium (not available in ap-south-2), t3.micro (too small for EKS)
+  default     = ["t3.micro"] 
 }
 
 variable "desired_size" {
