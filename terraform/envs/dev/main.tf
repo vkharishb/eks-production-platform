@@ -10,7 +10,7 @@ module "vpc" {
   public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
 
   enable_nat_gateway = true
-  single_nat_gateway = true 
+  single_nat_gateway = true
 
   tags = {
     env = "dev"
@@ -30,8 +30,8 @@ module "eks" {
   min_size     = 1
   max_size     = 3
 
-  instance_types = ["t3.micro"] 
-  capacity_type  = "ON_DEMAND"  
+  instance_types = ["t3.micro"]
+  capacity_type  = "ON_DEMAND"
 
   tags = {
     env = "dev"
