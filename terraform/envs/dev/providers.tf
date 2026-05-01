@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "ap-south-2"
+  region = "ap-south-1"
 
   default_tags {
     tags = {

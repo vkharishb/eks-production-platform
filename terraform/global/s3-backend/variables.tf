@@ -1,6 +1,6 @@
 variable "region" {
   description = "AWS region for the S3 backend"
-  default     = "ap-south-2"
+  default     = "ap-south-1"
 }
 
 variable "env" {
