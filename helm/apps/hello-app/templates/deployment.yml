@@ -21,17 +21,14 @@ spec:
             - "-text=Hello from EKS 🚀"
           ports:
             - containerPort: {{ .Values.service.targetPort }}
-
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-
           livenessProbe:
             httpGet:
               path: {{ .Values.health.path }}
               port: {{ .Values.health.port }}
             initialDelaySeconds: 5
             periodSeconds: 10
-
           readinessProbe:
             httpGet:
               path: {{ .Values.health.path }}

@@ -1,8 +1,8 @@
-replicaCount: 2
+replicaCount: 1
 
 image:
   repository: hashicorp/http-echo
-  tag: latest
+  tag: "0.4.0"           # pinned — was "latest" (unpredictable, cache-busting with IfNotPresent)
   pullPolicy: IfNotPresent
 
 service:
@@ -17,7 +17,7 @@ ingress:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
   hosts:
-    - host: ""
+    - host: ""            # override per-environment (see values-dev/prod)
       paths:
         - path: /
           pathType: Prefix
@@ -30,8 +30,9 @@ resources:
     cpu: "500m"
     memory: "512Mi"
 
+# HPA disabled by default — safest base; environments opt in explicitly
 autoscaling:
-  enabled: true
+  enabled: false
   minReplicas: 2
   maxReplicas: 5
   targetCPUUtilizationPercentage: 70

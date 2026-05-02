@@ -1,5 +1,12 @@
 replicaCount: 3
 
+ingress:
+  hosts:
+    - host: "hello.example.com"    # real hostname — was empty string (matched all hosts)
+      paths:
+        - path: /
+          pathType: Prefix
+
 autoscaling:
   enabled: true
   minReplicas: 3

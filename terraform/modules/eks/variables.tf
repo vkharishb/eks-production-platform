@@ -23,13 +23,13 @@ variable "private_subnets" {
 variable "capacity_type" {
   description = "Capacity type for node group: ON_DEMAND or SPOT"
   type        = string
-  default     = "SPOT" 
+  default     = "ON_DEMAND"   # was "SPOT" — silently enables node interruptions for envs that don't override
 }
 
 variable "instance_types" {
   description = "List of instance types for worker nodes"
   type        = list(string)
-  default     = ["t3.medium"] 
+  default     = ["t3.medium"]
 }
 
 variable "desired_size" {
@@ -47,7 +47,13 @@ variable "min_size" {
 variable "max_size" {
   description = "Maximum number of worker nodes"
   type        = number
-  default     = 2
+  default     = 3   # was 2 — lower than what dev explicitly configured (3); inconsistent
+}
+
+variable "cluster_endpoint_public_access_cidrs" {
+  description = "CIDR blocks allowed to reach the public EKS API endpoint"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]   # override with your office/VPN CIDR in each env
 }
 
 variable "tags" {

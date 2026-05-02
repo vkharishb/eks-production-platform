@@ -1,4 +1,11 @@
 replicaCount: 1
 
+ingress:
+  hosts:
+    - host: "hello-dev.internal"   # real hostname — was empty string (matched all hosts)
+      paths:
+        - path: /
+          pathType: Prefix
+
 autoscaling:
   enabled: false

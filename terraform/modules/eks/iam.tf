@@ -11,9 +11,6 @@ resource "aws_iam_role" "eks_nodes" {
   })
 }
 
-# -------------------------------------------------------
-# Required policies for nodes to join the cluster
-# -------------------------------------------------------
 resource "aws_iam_role_policy_attachment" "worker_node" {
   role       = aws_iam_role.eks_nodes.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"

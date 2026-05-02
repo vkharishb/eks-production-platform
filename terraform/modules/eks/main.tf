@@ -8,8 +8,10 @@ module "eks" {
   vpc_id     = var.vpc_id
   subnet_ids = var.private_subnets
 
-  # Allow kubectl access from anywhere (fine for dev/showcase)
-  cluster_endpoint_public_access = true
+  cluster_endpoint_public_access       = true
+  # Restrict to known CIDRs — was unrestricted (0.0.0.0/0 by default)
+  # Set cluster_endpoint_public_access_cidrs in each env's tfvars
+  cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
 
   enable_irsa = true
 
@@ -21,8 +23,6 @@ module "eks" {
       instance_types = var.instance_types
       capacity_type  = var.capacity_type
 
-      
-      # Use our custom role from iam.tf — disable module's own role
       create_iam_role = false
       iam_role_arn    = aws_iam_role.eks_nodes.arn
 
@@ -44,11 +44,11 @@ resource "aws_security_group" "eks_cluster" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description = "Allow HTTPS from anywhere (kubectl access)"
+    description = "Allow HTTPS from allowed CIDRs (kubectl access)"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.cluster_endpoint_public_access_cidrs
   }
 
   egress {

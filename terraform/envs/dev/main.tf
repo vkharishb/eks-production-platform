@@ -33,6 +33,10 @@ module "eks" {
   instance_types = ["t3.medium"]
   capacity_type  = "ON_DEMAND"
 
+  # Restrict kubectl API access to known CIDRs only
+  # Replace with your office/VPN IP before applying
+  cluster_endpoint_public_access_cidrs = var.allowed_cidr_blocks
+
   tags = {
     env = "dev"
   }
@@ -46,4 +50,11 @@ variable "project_name" {
 variable "env" {
   description = "Deployment environment"
   default     = "dev"
+}
+
+variable "allowed_cidr_blocks" {
+  description = "CIDR blocks permitted to reach the EKS public API endpoint"
+  type        = list(string)
+  # Set this in terraform.tfvars (gitignored) — do NOT default to 0.0.0.0/0
+  # Example: ["203.0.113.10/32", "10.0.0.0/8"]
 }

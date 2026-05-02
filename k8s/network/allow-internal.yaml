@@ -4,7 +4,14 @@ metadata:
   name: allow-internal
   namespace: dev
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app: hello-app
   ingress:
-  - from:
-    - podSelector: {}
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hello-app   # was {} — matched ALL pods, defeating default-deny
+      ports:
+        - port: 5678
+          protocol: TCP
