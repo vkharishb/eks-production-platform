@@ -23,7 +23,7 @@ variable "private_subnets" {
 variable "capacity_type" {
   description = "Capacity type for node group: ON_DEMAND or SPOT"
   type        = string
-  default     = "spot" 
+  default     = "SPOT" 
 }
 
 variable "instance_types" {
