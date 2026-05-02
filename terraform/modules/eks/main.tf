@@ -21,8 +21,10 @@ module "eks" {
       instance_types = var.instance_types
       capacity_type  = var.capacity_type
 
-      # Wire in the IAM role we create in iam.tf
-      iam_role_arn = aws_iam_role.eks_nodes.arn
+      
+      # Use our custom role from iam.tf — disable module's own role
+      create_iam_role = false
+      iam_role_arn    = aws_iam_role.eks_nodes.arn
 
       labels = {
         role = "general"

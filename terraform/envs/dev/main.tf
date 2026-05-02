@@ -30,7 +30,7 @@ module "eks" {
   min_size     = 1
   max_size     = 3
 
-  instance_types = ["t3.Medium"]
+  instance_types = ["t3.medium"]
   capacity_type  = "ON_DEMAND"
 
   tags = {
