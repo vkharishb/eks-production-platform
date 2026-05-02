@@ -5,5 +5,8 @@ metadata:
   name: read-only
 rules:
 - apiGroups: [""]
-  resources: ["pods", "services", "deployments"]
+  resources: ["pods", "services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
   verbs: ["get", "list", "watch"]

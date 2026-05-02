@@ -23,13 +23,13 @@ variable "private_subnets" {
 variable "capacity_type" {
   description = "Capacity type for node group: ON_DEMAND or SPOT"
   type        = string
-  default     = "ON_DEMAND" # changed from SPOT — ap-south-2 has no SPOT capacity
+  default     = "spot" 
 }
 
 variable "instance_types" {
   description = "List of instance types for worker nodes"
   type        = list(string)
-  default     = ["t3.micro"] 
+  default     = ["t3.medium"] 
 }
 
 variable "desired_size" {
