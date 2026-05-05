@@ -128,17 +128,10 @@ resource "aws_eks_addon" "ebs_csi" {
 # -------------------------------------------------------
 # AWS Load Balancer Controller — IRSA + Helm
 # -------------------------------------------------------
-
-# Download the official AWS-managed IAM policy document for the ALB controller.
-# This is the canonical policy published by the AWS Load Balancer Controller project.
-data "http" "alb_controller_policy" {
-  url = "https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json"
-}
-
 resource "aws_iam_policy" "alb_controller" {
   name        = "${var.cluster_name}-alb-controller"
-  description = "IAM policy for the AWS Load Balancer Controller"
-  policy      = data.http.alb_controller_policy.response_body
+  description = "IAM policy for the AWS Load Balancer Controller (v2.7.2)"
+  policy      = file("${path.module}/alb_controller_iam_policy.json")
   tags        = var.tags
 }
 
@@ -178,6 +171,8 @@ resource "aws_iam_role_policy_attachment" "alb_controller" {
   policy_arn = aws_iam_policy.alb_controller.arn
 }
 
+# Install the AWS Load Balancer Controller via its official Helm chart.
+# The chart creates the ServiceAccount, CRDs, Deployment, and Webhooks.
 resource "helm_release" "alb_controller" {
   name       = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
@@ -185,26 +180,28 @@ resource "helm_release" "alb_controller" {
   version    = "1.7.2"
   namespace  = "kube-system"
 
-  values = [
-    yamlencode({
-      clusterName = module.eks.cluster_name
-      serviceAccount = {
-        create = true
-        name   = "aws-load-balancer-controller"
-        annotations = {
-          "eks.amazonaws.com/role-arn" = aws_iam_role.alb_controller.arn
-        }
-      }
-      vpcId        = var.vpc_id
-      region       = var.aws_region
-      replicaCount = 2
-    })
-  ]
+  # Pass cluster identity so the controller can call the AWS APIs
+  values = [yamlencode({
+  clusterName = module.eks.cluster_name
+
+  serviceAccount = {
+    create = true
+    name   = "aws-load-balancer-controller"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.alb_controller.arn
+    }
+  }
+
+  region = var.aws_region
+  vpcId  = var.vpc_id
+
+  replicaCount = 2
+})]
 
   depends_on = [
     module.eks,
     aws_iam_role_policy_attachment.alb_controller,
-    aws_eks_addon.vpc_cni,   
-    aws_eks_addon.coredns,   
+    aws_eks_addon.vpc_cni,   # VPC CNI must be up before pods are scheduled
+    aws_eks_addon.coredns,   # CoreDNS needed for webhook DNS resolution
   ]
 }
