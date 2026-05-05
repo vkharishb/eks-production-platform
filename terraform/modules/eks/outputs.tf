@@ -37,3 +37,8 @@ output "private_subnets" {
   description = "Private subnet IDs used by the cluster"
   value       = var.private_subnets
 }
+
+output "alb_controller_role_arn" {
+  description = "ARN of the IRSA role used by the AWS Load Balancer Controller"
+  value       = aws_iam_role.alb_controller.arn
+}

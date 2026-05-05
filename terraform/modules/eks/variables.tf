@@ -55,6 +55,11 @@ variable "cluster_endpoint_public_access_cidrs" {
   type        = list(string)
 }
 
+variable "aws_region" {
+  description = "AWS region — passed to the ALB controller so it can sign API requests correctly"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
