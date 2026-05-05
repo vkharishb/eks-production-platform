@@ -78,7 +78,7 @@ eks-production-platform/
 │           │   ├── service.yml
 │           │   ├── ingress.yml
 │           │   └── hpa.yml
-│           ├── values.yml       # Base values
+│           ├── values.yaml      # Base values
 │           ├── values-dev.yml   # Dev overrides (1 replica, HPA off)
 │           └── values-prod.yml  # Prod overrides (3 replicas, HPA on)
 │
@@ -111,7 +111,7 @@ The EBS CSI driver uses IRSA via OIDC federation rather than node-level IAM poli
 Core components (VPC CNI, kube-proxy, CoreDNS, EBS CSI) are deployed as EKS managed add-ons. This delegates version lifecycle management to AWS and simplifies cluster upgrades.
 
 ### Helm Values Layering
-The Helm chart uses a base `values.yml` with environment-specific overrides (`values-dev.yml`, `values-prod.yml`). This keeps environment differences explicit and minimal, and the same chart can be promoted through environments without modification.
+The Helm chart uses a base `values.yaml` with environment-specific overrides (`values-dev.yml`, `values-prod.yml`). This keeps environment differences explicit and minimal, and the same chart can be promoted through environments without modification.
 
 ### Network Isolation
 Namespaces start with a default-deny NetworkPolicy and selectively allow intra-namespace pod communication. This contains blast radius in the event of a compromised pod.
@@ -176,13 +176,13 @@ kubectl apply -f k8s/storage/
 # Deploy to dev namespace
 helm upgrade --install hello-app ./helm/apps/hello-app \
   --namespace dev \
-  --values helm/apps/hello-app/values.yml \
+  --values helm/apps/hello-app/values.yaml \
   --values helm/apps/hello-app/values-dev.yml
 
 # Deploy to prod namespace
 helm upgrade --install hello-app ./helm/apps/hello-app \
   --namespace prod \
-  --values helm/apps/hello-app/values.yml \
+  --values helm/apps/hello-app/values.yaml \
   --values helm/apps/hello-app/values-prod.yml
 ```
 
