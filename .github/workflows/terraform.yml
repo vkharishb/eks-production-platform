@@ -77,9 +77,6 @@ jobs:
       - name: Terraform plan
         run: terraform plan -input=false
 
-      - name: Terraform apply
-        run: terraform apply -input=false -auto-approve
-
   pr-plan:
     name: PR plan (${{ matrix.environment }})
     if: github.event_name == 'pull_request'
