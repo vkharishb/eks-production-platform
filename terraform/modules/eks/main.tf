@@ -8,8 +8,9 @@ module "eks" {
   vpc_id     = var.vpc_id
   subnet_ids = var.private_subnets
 
-  cluster_endpoint_public_access       = true
-  cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
+  cluster_endpoint_public_access        = true
+  cluster_endpoint_public_access_cidrs  = var.cluster_endpoint_public_access_cidrs
+  cluster_additional_security_group_ids = [aws_security_group.eks_cluster.id]
 
   enable_irsa = true
 
@@ -31,6 +32,12 @@ module "eks" {
   }
 
   tags = var.tags
+
+  depends_on = [
+    aws_iam_role_policy_attachment.worker_node,
+    aws_iam_role_policy_attachment.cni,
+    aws_iam_role_policy_attachment.ecr,
+  ]
 }
 
 # -------------------------------------------------------
@@ -174,6 +181,8 @@ resource "aws_iam_role_policy_attachment" "alb_controller" {
 # Install the AWS Load Balancer Controller via its official Helm chart.
 # The chart creates the ServiceAccount, CRDs, Deployment, and Webhooks.
 resource "helm_release" "alb_controller" {
+  count = var.install_alb_controller ? 1 : 0
+
   name       = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
@@ -182,26 +191,26 @@ resource "helm_release" "alb_controller" {
 
   # Pass cluster identity so the controller can call the AWS APIs
   values = [yamlencode({
-  clusterName = module.eks.cluster_name
+    clusterName = module.eks.cluster_name
 
-  serviceAccount = {
-    create = true
-    name   = "aws-load-balancer-controller"
-    annotations = {
-      "eks.amazonaws.com/role-arn" = aws_iam_role.alb_controller.arn
+    serviceAccount = {
+      create = true
+      name   = "aws-load-balancer-controller"
+      annotations = {
+        "eks.amazonaws.com/role-arn" = aws_iam_role.alb_controller.arn
+      }
     }
-  }
 
-  region = var.aws_region
-  vpcId  = var.vpc_id
+    region = var.aws_region
+    vpcId  = var.vpc_id
 
-  replicaCount = 2
-})]
+    replicaCount = 2
+  })]
 
   depends_on = [
     module.eks,
     aws_iam_role_policy_attachment.alb_controller,
-    aws_eks_addon.vpc_cni,   # VPC CNI must be up before pods are scheduled
-    aws_eks_addon.coredns,   # CoreDNS needed for webhook DNS resolution
+    aws_eks_addon.vpc_cni, # VPC CNI must be up before pods are scheduled
+    aws_eks_addon.coredns, # CoreDNS needed for webhook DNS resolution
   ]
 }

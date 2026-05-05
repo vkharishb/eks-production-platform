@@ -23,7 +23,7 @@ variable "private_subnets" {
 variable "capacity_type" {
   description = "Capacity type for node group: ON_DEMAND or SPOT"
   type        = string
-  default     = "ON_DEMAND"   
+  default     = "ON_DEMAND"
 }
 
 variable "instance_types" {
@@ -47,7 +47,7 @@ variable "min_size" {
 variable "max_size" {
   description = "Maximum number of worker nodes"
   type        = number
-  default     = 3   # was 2 — lower than what dev explicitly configured (3); inconsistent
+  default     = 3 # was 2 — lower than what dev explicitly configured (3); inconsistent
 }
 
 variable "cluster_endpoint_public_access_cidrs" {
@@ -64,4 +64,10 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "install_alb_controller" {
+  description = "Whether to install the AWS Load Balancer Controller Helm chart from this module"
+  type        = bool
+  default     = false
 }
