@@ -1,6 +1,13 @@
 name: Terraform
 
 on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - dev
   pull_request:
     paths:
       - terraform/**
@@ -33,6 +40,45 @@ env:
   TF_VAR_allowed_cidr_blocks: ${{ vars.ALLOWED_CIDR_BLOCKS || '["10.0.0.0/8"]' }}
 
 jobs:
+  ci-dev-apply:
+    name: CI-triggered dev apply
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'dev'
+    runs-on: ubuntu-latest
+    environment: dev
+    defaults:
+      run:
+        working-directory: terraform/envs/dev
+
+    steps:
+      - name: Checkout CI commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive ../..
+
+      - name: Terraform init
+        run: terraform init
+
+      - name: Terraform validate
+        run: terraform validate
+
+      - name: Terraform plan
+        run: terraform plan -input=false
+
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve
+
   pr-plan:
     name: PR plan (${{ matrix.environment }})
     if: github.event_name == 'pull_request'

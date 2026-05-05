@@ -34,14 +34,14 @@ jobs:
         run: |
           helm template hello-app helm/apps/hello-app \
             --namespace dev \
-            --values helm/apps/hello-app/values.yml \
+            --values helm/apps/hello-app/values.yaml \
             --values helm/apps/hello-app/values-dev.yml
 
       - name: Render Helm chart with prod values
         run: |
           helm template hello-app helm/apps/hello-app \
             --namespace prod \
-            --values helm/apps/hello-app/values.yml \
+            --values helm/apps/hello-app/values.yaml \
             --values helm/apps/hello-app/values-prod.yml
 
       - name: Build Docker image
