@@ -8,10 +8,19 @@ spec:
     matchLabels:
       app: hello-app
   ingress:
-    - from:
-        - podSelector:
+   - from:
+        - namespaceSelector:
             matchLabels:
-              app: hello-app   # was {} — matched ALL pods, defeating default-deny
+              kubernetes.io/metadata.name: kube-system
       ports:
         - port: 5678
           protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hello-app
+      ports:
+        - port: 5678
+          protocol: TCP
+  policyTypes:
+    - Ingress 
