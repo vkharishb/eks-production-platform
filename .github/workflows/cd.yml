@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: Environment to deploy
+        description: Deployment environment
         required: true
         default: dev
         type: choice
@@ -29,7 +29,7 @@ env:
 jobs:
   build:
     name: Build and push image
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev')
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'workflow_run' && github.event.workflow_run.head_branch == 'dev')
     runs-on: ubuntu-latest
     outputs:
       image_repository: ${{ steps.image.outputs.repository }}
@@ -72,8 +72,8 @@ jobs:
   deploy-dev:
     name: Deploy dev
     needs: build
-    runs-on: ubuntu-latest
     if: github.event_name == 'workflow_run' || inputs.environment == 'dev'
+    runs-on: ubuntu-latest
     environment: dev
 
     steps:
@@ -125,11 +125,14 @@ jobs:
           IMAGE_REPOSITORY: ${{ needs.build.outputs.image_repository }}
           IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
 
+      - name: Verify rollout
+        run: kubectl rollout status deployment/hello-app --namespace dev
+
   deploy-prod:
     name: Deploy prod
     needs: build
-    runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
+    runs-on: ubuntu-latest
     environment: prod
 
     steps:
@@ -178,3 +181,6 @@ jobs:
         env:
           IMAGE_REPOSITORY: ${{ needs.build.outputs.image_repository }}
           IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+
+      - name: Verify rollout
+        run: kubectl rollout status deployment/hello-app --namespace prod
