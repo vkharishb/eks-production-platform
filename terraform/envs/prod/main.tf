@@ -10,7 +10,7 @@ module "vpc" {
   public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
 
   enable_nat_gateway = true
-  single_nat_gateway = true
+  single_nat_gateway = false
 
   tags = {
     env = "prod"
@@ -28,9 +28,9 @@ module "eks" {
 
   aws_region = var.aws_region
 
-  desired_size = 1
-  min_size     = 1
-  max_size     = 3
+  desired_size = 3
+  min_size     = 2
+  max_size     = 6
 
   instance_types = ["t3.medium"]
   capacity_type  = "ON_DEMAND"

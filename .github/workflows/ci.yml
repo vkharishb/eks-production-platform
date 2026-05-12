@@ -28,11 +28,17 @@ jobs:
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive terraform
 
-      - name: Terraform init and validate
+      - name: Terraform init and validate dev
         run: |
           terraform init -backend=false
           terraform validate
         working-directory: terraform/envs/dev
+
+      - name: Terraform init and validate prod
+        run: |
+          terraform init -backend=false
+          terraform validate
+        working-directory: terraform/envs/prod
 
       - name: Lint Helm chart
         run: helm lint helm/apps/hello-app
@@ -55,7 +61,7 @@ jobs:
         run: docker build --file docker/Dockerfile --tag hello-app:ci .
 
       - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: hello-app:ci
           format: table

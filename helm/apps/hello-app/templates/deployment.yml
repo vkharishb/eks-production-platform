@@ -18,7 +18,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
-            - "-text=Hello from EKS 🚀"
+            - "-text=Hello from EKS"
           ports:
             - containerPort: {{ .Values.service.targetPort }}
           resources:

@@ -47,7 +47,7 @@ variable "min_size" {
 variable "max_size" {
   description = "Maximum number of worker nodes"
   type        = number
-  default     = 3 # was 2 — lower than what dev explicitly configured (3); inconsistent
+  default     = 3
 }
 
 variable "cluster_endpoint_public_access_cidrs" {
@@ -56,7 +56,7 @@ variable "cluster_endpoint_public_access_cidrs" {
 }
 
 variable "aws_region" {
-  description = "AWS region — passed to the ALB controller so it can sign API requests correctly"
+  description = "AWS region passed to the ALB controller so it can sign API requests correctly"
   type        = string
 }
 

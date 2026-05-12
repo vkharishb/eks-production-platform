@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: read-only
-  namespace: prod          # was missing — prod had no RBAC definition
+  namespace: prod
 rules:
   - apiGroups: [""]
     resources: ["pods", "services"]
@@ -15,7 +15,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: read-only-binding
-  namespace: prod          # was missing — prod had no RBAC definition
+  namespace: prod
 subjects:
   - kind: User
     name: developer

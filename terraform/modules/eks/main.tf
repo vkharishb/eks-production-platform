@@ -88,7 +88,7 @@ resource "aws_eks_addon" "coredns" {
 }
 
 # -------------------------------------------------------
-# EBS CSI Driver — IRSA + Addon
+# EBS CSI Driver - IRSA + Addon
 # -------------------------------------------------------
 data "aws_iam_policy_document" "ebs_csi_assume_role" {
   statement {
@@ -133,7 +133,7 @@ resource "aws_eks_addon" "ebs_csi" {
 }
 
 # -------------------------------------------------------
-# AWS Load Balancer Controller — IRSA + Helm
+# AWS Load Balancer Controller - IRSA + Helm
 # -------------------------------------------------------
 resource "aws_iam_policy" "alb_controller" {
   name        = "${var.cluster_name}-alb-controller"
