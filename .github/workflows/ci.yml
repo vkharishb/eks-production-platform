@@ -61,7 +61,7 @@ jobs:
         run: docker build --file docker/Dockerfile --tag hello-app:ci .
 
       - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: hello-app:ci
           format: table
