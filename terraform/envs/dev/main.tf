@@ -26,6 +26,8 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   private_subnets = module.vpc.private_subnets
 
+  aws_region = var.aws_region
+
   desired_size = 1
   min_size     = 1
   max_size     = 3
@@ -55,6 +57,12 @@ variable "env" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks permitted to reach the EKS public API endpoint"
   type        = list(string)
-  # Set this in terraform.tfvars (gitignored) — do NOT default to 0.0.0.0/0
+  # Set this in terraform.tfvars or GitHub Actions vars.
   # Example: ["203.0.113.10/32", "10.0.0.0/8"]
+}
+
+variable "aws_region" {
+  description = "AWS region for deployment"
+  type        = string
+  default     = "ap-south-1"
 }
