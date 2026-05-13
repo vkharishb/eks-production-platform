@@ -55,6 +55,9 @@ variable "env" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks permitted to reach the EKS public API endpoint"
   type        = list(string)
+  # Set this in terraform.tfvars or GitHub Actions vars.
+  # EKS public endpoint CIDRs must be public IPv4 ranges.
+  # Example: ["203.0.113.10/32"]
 }
 
 variable "aws_region" {

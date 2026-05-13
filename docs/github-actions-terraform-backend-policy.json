@@ -1,0 +1,46 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TerraformStateBucketList",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": [
+        "arn:aws:s3:::haris-eks-production-platform-tf-state-dev",
+        "arn:aws:s3:::haris-eks-production-platform-tf-state-prod"
+      ]
+    },
+    {
+      "Sid": "TerraformStateObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::haris-eks-production-platform-tf-state-dev/envs/dev/terraform.tfstate",
+        "arn:aws:s3:::haris-eks-production-platform-tf-state-dev/envs/dev/terraform.tfstate*",
+        "arn:aws:s3:::haris-eks-production-platform-tf-state-prod/envs/prod/terraform.tfstate",
+        "arn:aws:s3:::haris-eks-production-platform-tf-state-prod/envs/prod/terraform.tfstate*"
+      ]
+    },
+    {
+      "Sid": "TerraformStateLocks",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DescribeTable",
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:DeleteItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-south-1:*:table/haris-eks-production-platform-tf-state-lock-dev",
+        "arn:aws:dynamodb:ap-south-1:*:table/haris-eks-production-platform-tf-state-lock-prod"
+      ]
+    }
+  ]
+}
