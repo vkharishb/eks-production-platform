@@ -54,6 +54,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "state_expiry" {
   rule {
     id     = "expire-old-state-versions"
     status = "Enabled"
+    filter {}
 
     noncurrent_version_expiration {
       noncurrent_days = 90

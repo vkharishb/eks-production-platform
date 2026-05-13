@@ -1,11 +1,11 @@
 terraform {
   backend "s3" {
     # bucket name must match what s3-backend/main.tf creates:
-    # "${var.project_name}-tf-state-${var.env}" = "eks-production-platform-tf-state-dev"
-    bucket         = "eks-production-platform-tf-state-dev"
+    # "${var.project_name}-tf-state-${var.env}" = "haris-eks-production-platform-tf-state-dev"
+    bucket         = "haris-eks-production-platform-tf-state-dev"
     key            = "envs/dev/terraform.tfstate"
     region         = "ap-south-1"
-    dynamodb_table = "eks-production-platform-tf-state-lock-dev"
+    dynamodb_table = "haris-eks-production-platform-tf-state-lock-dev"
     encrypt        = true
   }
 

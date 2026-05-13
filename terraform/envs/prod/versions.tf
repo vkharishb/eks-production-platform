@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket         = "eks-production-platform-tf-state-prod"
+    bucket         = "haris-eks-production-platform-tf-state-prod"
     key            = "envs/prod/terraform.tfstate"
     region         = "ap-south-1"
-    dynamodb_table = "eks-production-platform-tf-state-lock-prod"
+    dynamodb_table = "haris-eks-production-platform-tf-state-lock-prod"
     encrypt        = true
   }
 
