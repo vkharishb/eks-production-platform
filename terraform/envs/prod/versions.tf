@@ -1,10 +1,10 @@
 terraform {
   backend "s3" {
-    bucket         = "eks-production-platform-tf-state-prod"
-    key            = "envs/prod/terraform.tfstate"
-    region         = "ap-south-1"
-    dynamodb_table = "eks-production-platform-tf-state-lock-prod"
-    encrypt        = true
+    bucket       = "haris-eks-production-platform-tf-state-prod"
+    key          = "envs/prod/terraform.tfstate"
+    region       = "ap-south-1"
+    use_lockfile = true
+    encrypt      = true
   }
 
   required_providers {
@@ -26,5 +26,5 @@ terraform {
     }
   }
 
-  required_version = ">= 1.3.0"
+  required_version = ">= 1.10.0"
 }
