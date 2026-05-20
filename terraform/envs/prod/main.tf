@@ -2,12 +2,12 @@ module "vpc" {
   source = "../../modules/vpc"
 
   name = "${var.project_name}-${var.env}-vpc"
-  cidr = "10.0.0.0/16"
+  cidr = "10.1.0.0/16"
 
   azs = ["ap-south-1a", "ap-south-1b"]
 
-  private_subnets = ["10.0.10.0/24", "10.0.20.0/24"]
-  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
+  private_subnets = ["10.1.10.0/24", "10.1.20.0/24"]
+  public_subnets  = ["10.1.1.0/24", "10.1.2.0/24"]
 
   enable_nat_gateway = true
   single_nat_gateway = false
@@ -55,9 +55,6 @@ variable "env" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks permitted to reach the EKS public API endpoint"
   type        = list(string)
-  # Set this in terraform.tfvars or GitHub Actions vars.
-  # EKS public endpoint CIDRs must be public IPv4 ranges.
-  # Example: ["203.0.113.10/32"]
 }
 
 variable "aws_region" {

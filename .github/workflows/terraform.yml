@@ -26,14 +26,13 @@ on:
         options:
           - plan
           - apply
-          - destroy
 
 permissions:
   contents: read
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
-  TF_VAR_allowed_cidr_blocks: ${{ vars.ALLOWED_CIDR_BLOCKS || '["0.0.0.0/0"]' }}
+  TF_VAR_allowed_cidr_blocks: ${{ vars.ALLOWED_CIDR_BLOCKS || '["10.0.0.0/8"]' }}
 
 jobs:
   dev-apply-after-ci:
@@ -61,12 +60,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Check AWS identity and Terraform backend access
-        run: |
-          aws sts get-caller-identity
-          aws s3api head-bucket --bucket haris-eks-production-platform-tf-state-dev
-          aws dynamodb describe-table --table-name haris-eks-production-platform-tf-state-lock-dev
-
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive ../..
 
@@ -80,20 +73,16 @@ jobs:
         run: terraform plan -input=false
 
       - name: Terraform apply
-        id: apply
         run: terraform apply -input=false -auto-approve
-
-      - name: Destroy dev after failed apply
-        if: failure() && steps.apply.outcome == 'failure'
-        run: terraform destroy -input=false -auto-approve
 
   manual:
     name: Manual ${{ inputs.action }} (${{ inputs.environment }})
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    env:
-      TF_WORKING_DIR: terraform/envs/${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: terraform/envs/${{ inputs.environment }}
 
     steps:
       - name: Checkout
@@ -109,52 +98,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Check AWS identity and Terraform backend access
-        run: |
-          aws sts get-caller-identity
-          aws s3api head-bucket --bucket "haris-eks-production-platform-tf-state-${{ inputs.environment }}"
-          aws dynamodb describe-table --table-name "haris-eks-production-platform-tf-state-lock-${{ inputs.environment }}"
-
-      - name: Prevent prod destroy
-        if: inputs.action == 'destroy' && inputs.environment != 'dev'
-        run: |
-          echo "Terraform destroy is only enabled for dev."
-          exit 1
-
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive ../..
-        working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform init
         run: terraform init
-        working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform validate
         run: terraform validate
-        working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform plan
-        if: inputs.action != 'destroy'
         run: terraform plan -input=false
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-      - name: Terraform destroy plan
-        if: inputs.action == 'destroy' && inputs.environment == 'dev'
-        run: terraform plan -destroy -input=false
-        working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform apply
-        id: apply
         if: inputs.action == 'apply'
         run: terraform apply -input=false -auto-approve
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-      - name: Destroy dev after failed apply
-        if: failure() && steps.apply.outcome == 'failure' && inputs.environment == 'dev'
-        run: terraform destroy -input=false -auto-approve
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-      - name: Terraform destroy dev
-        if: inputs.action == 'destroy' && inputs.environment == 'dev'
-        run: terraform destroy -input=false -auto-approve
-        working-directory: ${{ env.TF_WORKING_DIR }}

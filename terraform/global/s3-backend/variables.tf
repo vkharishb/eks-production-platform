@@ -10,5 +10,5 @@ variable "env" {
 
 variable "project_name" {
   description = "Name of the project"
-  default     = "haris-eks-production-platform"
+  default     = "eks-production-platform"
 }
