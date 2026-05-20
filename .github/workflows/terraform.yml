@@ -27,13 +27,17 @@ on:
           - plan
           - apply
           - destroy
+      allowed_cidr_blocks:
+        description: JSON list of public CIDRs allowed to reach the EKS API
+        required: true
+        default: '["0.0.0.0/0"]'
+        type: string
 
 permissions:
   contents: read
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
-  TF_VAR_allowed_cidr_blocks: ${{ vars.ALLOWED_CIDR_BLOCKS || '["0.0.0.0/0"]' }}
 
 jobs:
   dev-apply-after-ci:
@@ -41,6 +45,8 @@ jobs:
     if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev'
     runs-on: ubuntu-latest
     environment: dev
+    env:
+      TF_VAR_allowed_cidr_blocks: '["0.0.0.0/0"]'
     defaults:
       run:
         working-directory: terraform/envs/dev
@@ -81,6 +87,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    env:
+      TF_VAR_allowed_cidr_blocks: ${{ inputs.allowed_cidr_blocks }}
     defaults:
       run:
         working-directory: terraform/envs/${{ inputs.environment }}
