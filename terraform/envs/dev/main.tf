@@ -57,7 +57,7 @@ variable "env" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks permitted to reach the EKS public API endpoint"
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = ["10.0.0.0/16"] # Placeholder - must be overridden with valid public CIDRs in terraform.tfvars or workflow input
 
   validation {
     condition = alltrue([
