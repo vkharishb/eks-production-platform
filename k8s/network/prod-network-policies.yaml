@@ -1,30 +1,6 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny
-  namespace: prod
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
-    - Egress
-  egress:
-    - ports:
-        - port: 53
-          protocol: UDP
-        - port: 53
-          protocol: TCP
-      to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: allow-internal
   namespace: prod
 spec:
@@ -33,30 +9,9 @@ spec:
       app: hello-app
   ingress:
     - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: aws-load-balancer-controller
-      ports:
-        - port: 5678
-          protocol: TCP
-    - from:
         - podSelector:
             matchLabels:
               app: hello-app
       ports:
         - port: 5678
           protocol: TCP
-  egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              app: hello-app
-      ports:
-        - port: 5678
-          protocol: TCP
-  policyTypes:
-    - Ingress
-    - Egress
