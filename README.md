@@ -13,7 +13,7 @@ This repository provisions the AWS network and EKS foundation, applies baseline 
 | Remote state bootstrap | `terraform/global/s3-backend` | S3 state bucket and DynamoDB lock table |
 | Helm app | `helm/apps/hello-app` | App Deployment, Service, Ingress, and HPA templates |
 | Kubernetes platform manifests | `k8s/` | Namespaces, quotas, limits, RBAC, NetworkPolicies, and gp3 StorageClass |
-| Container image | `docker/Dockerfile` | `hashicorp/http-echo` based demo image |
+| Container image | `docker/Dockerfile` | Minimal local HTTP echo demo image |
 | Automation | `.github/workflows` | CI validation, Terraform automation, and CD deployment |
 
 ## Architecture
