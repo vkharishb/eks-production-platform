@@ -38,6 +38,7 @@ module "eks" {
   # Restrict kubectl API access to known CIDRs only
   # Replace with your office/VPN IP before applying
   cluster_endpoint_public_access_cidrs = var.allowed_cidr_blocks
+  
 
   tags = {
     env = "dev"
@@ -57,7 +58,7 @@ variable "env" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks permitted to reach the EKS public API endpoint"
   type        = list(string)
-  default     = ["10.0.0.0/16"] # Placeholder - must be overridden with valid public CIDRs in terraform.tfvars or workflow input
+  default     = ["203.0.113.50/32"] # Placeholder - must be overridden with valid public CIDRs in terraform.tfvars or workflow input
 
   validation {
     condition = alltrue([
