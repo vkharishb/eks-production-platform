@@ -26,6 +26,7 @@ on:
         options:
           - plan
           - apply
+          - destroy
 
 permissions:
   contents: read
@@ -107,9 +108,24 @@ jobs:
       - name: Terraform validate
         run: terraform validate
 
+      - name: Guard destroy environment
+        if: inputs.action == 'destroy' && inputs.environment != 'dev'
+        run: |
+          echo "Terraform destroy is only allowed for the dev environment."
+          exit 1
+
       - name: Terraform plan
+        if: inputs.action != 'destroy'
         run: terraform plan -input=false
+
+      - name: Terraform destroy plan
+        if: inputs.action == 'destroy' && inputs.environment == 'dev'
+        run: terraform plan -destroy -input=false
 
       - name: Terraform apply
         if: inputs.action == 'apply'
         run: terraform apply -input=false -auto-approve
+
+      - name: Terraform destroy
+        if: inputs.action == 'destroy' && inputs.environment == 'dev'
+        run: terraform destroy -input=false -auto-approve
