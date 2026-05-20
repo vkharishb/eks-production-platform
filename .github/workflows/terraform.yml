@@ -32,7 +32,7 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
-  TF_VAR_allowed_cidr_blocks: ${{ vars.ALLOWED_CIDR_BLOCKS || '["10.0.0.0/8"]' }}
+  TF_VAR_allowed_cidr_blocks: ${{ vars.ALLOWED_CIDR_BLOCKS || '["0.0.0.0/0"]' }}
 
 jobs:
   dev-apply-after-ci:

@@ -57,8 +57,20 @@ variable "env" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks permitted to reach the EKS public API endpoint"
   type        = list(string)
+
+  validation {
+    condition = alltrue([
+      for cidr in var.allowed_cidr_blocks :
+      can(cidrhost(cidr, 0)) &&
+      !can(regex("^10\\.", cidr)) &&
+      !can(regex("^192\\.168\\.", cidr)) &&
+      !can(regex("^172\\.(1[6-9]|2[0-9]|3[0-1])\\.", cidr))
+    ])
+    error_message = "EKS public API access CIDRs must be valid public CIDR blocks. Private ranges like 10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16 are not allowed."
+  }
+
   # Set this in terraform.tfvars or GitHub Actions vars.
-  # Example: ["203.0.113.10/32", "10.0.0.0/8"]
+  # Example: ["203.0.113.10/32"] or, for open dev access, ["0.0.0.0/0"].
 }
 
 variable "aws_region" {
