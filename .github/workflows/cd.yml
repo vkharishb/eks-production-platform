@@ -6,106 +6,32 @@ on:
       - Terraform
     types:
       - completed
-    branches:
-      - dev
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: Deployment environment for testing
-        required: true
-        default: dev
-        type: choice
-        options:
-          - dev
 
 permissions:
   contents: read
 
-concurrency:
-  group: cd-dev
-  cancel-in-progress: true
-
-env:
-  AWS_REGION: ap-south-1
-  EKS_CLUSTER_NAME: eks-cluster-dev
-  ECR_REPOSITORY: eks-dev-app
-
 jobs:
-
   deploy:
-    name: Deploy Application
-
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.conclusion == 'success'
 
     runs-on: ubuntu-latest
 
-    environment: ${{ github.event.inputs.environment || 'dev' }}
-
     steps:
-
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
-      - name: Login To Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Docker Image
-        run: |
-          docker build --file docker/Dockerfile --tag ${ECR_REPOSITORY}:${GITHUB_SHA} .
-
-      - name: Tag Docker Image
-        run: |
-          docker tag \
-            ${ECR_REPOSITORY}:${GITHUB_SHA} \
-            ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:${GITHUB_SHA}
-
-      - name: Push Docker Image
-        run: |
-          docker push \
-            ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:${GITHUB_SHA}
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-
-      - name: Verify EKS Cluster
-        run: |
-          aws eks describe-cluster \
-            --region "${AWS_REGION}" \
-            --name "${EKS_CLUSTER_NAME}"
-
-      - name: Update kubeconfig
+      - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
-            --region "${AWS_REGION}" \
-            --name "${EKS_CLUSTER_NAME}"
+            --region us-east-1 \
+            --name eks-production-cluster
 
-      - name: Helm Deploy
+      - name: Deploy to EKS
         run: |
-          helm upgrade --install hello-app ./helm/apps/hello-app \
-            --namespace dev \
-            --create-namespace \
-            --values ./helm/apps/hello-app/values.yaml \
-            --values ./helm/apps/hello-app/values-dev.yml \
-            --set image.repository=${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY} \
-            --set image.tag=${GITHUB_SHA}
-
-      - name: Verify Deployment
-        run: |
-          kubectl get nodes
-          kubectl get pods -A
-          kubectl get svc
+          kubectl apply -f k8s/

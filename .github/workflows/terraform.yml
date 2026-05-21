@@ -1,20 +1,12 @@
 name: Terraform
-
-
-on:
-  workflow_run:
-    workflows:
-      - CI
     types:
       - completed
-    branches:
-      - dev
+
   workflow_dispatch:
     inputs:
       action:
-        description: Terraform action for dev
+        description: Terraform Action
         required: true
-        default: plan
         type: choice
         options:
           - plan
@@ -22,101 +14,49 @@ on:
           - destroy
 
 permissions:
+  id-token: write
   contents: read
 
-concurrency:
-  group: terraform-dev
-  cancel-in-progress: true
-
-env:
-  AWS_REGION: ap-south-1
-  EKS_CLUSTER_NAME: eks-cluster-dev
-  TF_VAR_allowed_cidr_blocks: '["0.0.0.0/0"]'
-
 jobs:
-
   terraform:
-    name: Terraform
-
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event.workflow_run.conclusion == 'success'
-      )
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event_name == 'workflow_dispatch'
 
     runs-on: ubuntu-latest
 
-    environment: dev
-
-    defaults:
-      run:
-        working-directory: terraform/envs/dev
-
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
-      - name: Terraform Format Check
-        run: terraform fmt -check -recursive ../..
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
         run: terraform init
 
+      - name: Terraform Format Check
+        run: terraform fmt -check
+
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Verify CIDR
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "$TF_VAR_allowed_cidr_blocks"
-
       - name: Terraform Plan
-        if: github.event.inputs.action != 'destroy'
-        run: terraform plan -input=false -no-color
-
-      - name: Terraform Destroy Plan
-        if: github.event.inputs.action == 'destroy'
-        run: terraform plan -destroy -input=false -no-color
+        if: github.event.inputs.action == 'plan'
+        run: terraform plan
 
       - name: Terraform Apply
         if: |
           github.event_name == 'workflow_run' ||
           github.event.inputs.action == 'apply'
-        run: terraform apply -input=false -auto-approve -no-color
-
-      - name: Wait For EKS Cluster
-        if: |
-          github.event_name == 'workflow_run' ||
-          github.event.inputs.action == 'apply'
-        run: |
-          aws eks wait cluster-active \
-            --region "${AWS_REGION}" \
-            --name "${EKS_CLUSTER_NAME}"
-
-      - name: Verify EKS Cluster
-        if: |
-          github.event_name == 'workflow_run' ||
-          github.event.inputs.action == 'apply'
-        run: |
-          aws eks describe-cluster \
-            --region "${AWS_REGION}" \
-            --name "${EKS_CLUSTER_NAME}"
+        run: terraform apply -auto-approve
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
-        run: terraform destroy -input=false -auto-approve -no-color
+        run: terraform destroy -auto-approve
