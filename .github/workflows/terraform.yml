@@ -122,6 +122,11 @@ jobs:
       - name: Show EKS API CIDRs
         run: echo "Using allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
 
+      - name: Get Public IP
+        run: |
+          PUBLIC_IP=$(curl -s https://checkip.amazonaws.com)
+          echo "TF_VAR_allowed_cidr_blocks=[\"${PUBLIC_IP}/32\"]" >> $GITHUB_ENV
+
       - name: Guard destroy environment
         if: inputs.action == 'destroy' && inputs.environment != 'dev'
         run: |
