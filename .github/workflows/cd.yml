@@ -37,11 +37,12 @@ jobs:
     name: Deploy Application
 
     if: |
+      github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
 
     runs-on: ubuntu-latest
 
-    environment: dev
+    environment: ${{ github.event.inputs.environment || 'dev' }}
 
     steps:
 
