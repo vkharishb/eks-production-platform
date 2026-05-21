@@ -17,7 +17,6 @@ on:
         type: choice
         options:
           - dev
-          - prod
 
 permissions:
   contents: read
@@ -48,6 +47,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4

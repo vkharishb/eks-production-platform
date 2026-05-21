@@ -31,6 +31,7 @@ concurrency:
 env:
   AWS_REGION: ap-south-1
   EKS_CLUSTER_NAME: eks-cluster-dev
+  TF_VAR_allowed_cidr_blocks: '["0.0.0.0/0"]'
 
 jobs:
 
@@ -76,22 +77,6 @@ jobs:
 
       - name: Terraform Validate
         run: terraform validate
-
-      - name: Set Public IP For EKS Access
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          PUBLIC_IP="$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')"
-
-          if [[ -z "${PUBLIC_IP}" ]]; then
-            echo "Unable to detect runner public IP."
-            exit 1
-          fi
-
-          echo "Public IP: ${PUBLIC_IP}"
-
-          echo "TF_VAR_allowed_cidr_blocks=[\"${PUBLIC_IP}/32\"]" >> $GITHUB_ENV
 
       - name: Verify CIDR
         shell: bash
