@@ -23,13 +23,13 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: us-east-1
+          aws-region: ${{ secrets.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
-            --region us-east-1 \
+            --region ${{ secrets.AWS_REGION }} \
             --name eks-production-cluster
 
       - name: Deploy to EKS
