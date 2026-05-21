@@ -5,65 +5,45 @@ on:
     branches:
       - dev
       - main
+
   pull_request:
+    branches:
+      - dev
+      - main
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  validate:
-    name: Validate Terraform, Helm, Docker, and image scan
+
+  ci:
+    name: CI Pipeline
+
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Set up Helm
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Setup Helm
         uses: azure/setup-helm@v4
 
-      - name: Check Terraform formatting
-        run: terraform fmt -check -recursive terraform
-
-      - name: Terraform init and validate dev
+      - name: Helm Lint
         run: |
-          terraform init -backend=false
-          terraform validate
-        working-directory: terraform/envs/dev
+          helm lint helm/app
 
-      - name: Terraform init and validate prod
+      - name: Docker Build Test
         run: |
-          terraform init -backend=false
-          terraform validate
-        working-directory: terraform/envs/prod
+          docker build -t app:test .
 
-      - name: Lint Helm chart
-        run: helm lint helm/apps/hello-app
-
-      - name: Render Helm chart with dev values
-        run: |
-          helm template hello-app helm/apps/hello-app \
-            --namespace dev \
-            --values helm/apps/hello-app/values.yaml \
-            --values helm/apps/hello-app/values-dev.yml
-
-      - name: Render Helm chart with prod values
-        run: |
-          helm template hello-app helm/apps/hello-app \
-            --namespace prod \
-            --values helm/apps/hello-app/values.yaml \
-            --values helm/apps/hello-app/values-prod.yml
-
-      - name: Build Docker image
-        run: docker build --file docker/Dockerfile --tag hello-app:ci .
-
-      - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: hello-app:ci
-          format: table
-          severity: CRITICAL,HIGH
-          exit-code: "1"

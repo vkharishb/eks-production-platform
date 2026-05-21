@@ -1,5 +1,6 @@
 name: Terraform
 
+
 on:
   workflow_run:
     workflows:
@@ -8,153 +9,120 @@ on:
       - completed
     branches:
       - dev
+
   workflow_dispatch:
     inputs:
-      environment:
-        description: Terraform environment
-        required: true
-        default: dev
-        type: choice
-        options:
-          - dev
-          - prod
       action:
         description: Terraform action
         required: true
-        default: plan
+        default: apply
         type: choice
         options:
           - plan
           - apply
           - destroy
-      allowed_cidr_blocks:
-        description: JSON list of public CIDRs allowed to reach the EKS API
-        required: true
-        default: '["0.0.0.0/0"]'
-        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: true
+
 env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_REGION: ap-south-1
+  EKS_CLUSTER_NAME: eks-cluster-dev
 
 jobs:
-  dev-apply-after-ci:
-    name: Dev apply after CI
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev'
+
+  terraform:
+    name: Terraform Apply
+
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success'
+      )
+
     runs-on: ubuntu-latest
+
     environment: dev
-    env:
-      TF_CIDR_BLOCKS: '["0.0.0.0/0"]'
+
     defaults:
       run:
         working-directory: terraform/envs/dev
 
     steps:
-      - name: Checkout CI commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Check Terraform formatting
-        run: terraform fmt -check -recursive ../..
-
-      - name: Terraform init
-        run: terraform init
-
-      - name: Terraform validate
-        run: terraform validate
-
-      - name: Set Public IP for EKS API Access 
-        run: 
-          PUBLIC_IP = $(curl -s https://checkip.amazonaws.com)
-          echo "Public IP: ${PUBLIC_IP}" 
-          echo "TF_VAR_allowed_cidr_blocks=[\"${PUBLIC_IP}/32\"]" >> $GITHUB_ENV 
-         
-      - name: Verify CIDR 
-       run: 
-         echo "$TF_VAR_allowed_cidr_blocks"
-
-      - name: Show EKS API CIDRs
-        run: echo "Using allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
-
-      - name: Terraform plan
-        run: terraform plan -input=false -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
-
-      - name: Terraform apply
-        run: terraform apply -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
-
-  manual:
-    name: Manual ${{ inputs.action }} (${{ inputs.environment }})
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    env:
-      TF_CIDR_BLOCKS: ${{ inputs.allowed_cidr_blocks }}
-    defaults:
-      run:
-        working-directory: terraform/envs/${{ inputs.environment }}
-
-    steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Set up Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Check Terraform formatting
+      - name: Terraform Format Check
         run: terraform fmt -check -recursive ../..
 
-      - name: Terraform init
+      - name: Terraform Init
         run: terraform init
 
-      - name: Terraform validate
+      - name: Terraform Validate
         run: terraform validate
 
-      - name: Show EKS API CIDRs
-        run: echo "Using allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
-
-      - name: Get Public IP
+      - name: Set Public IP For EKS Access
         run: |
           PUBLIC_IP=$(curl -s https://checkip.amazonaws.com)
+
+          echo "Public IP: ${PUBLIC_IP}"
+
           echo "TF_VAR_allowed_cidr_blocks=[\"${PUBLIC_IP}/32\"]" >> $GITHUB_ENV
 
-      - name: Guard destroy environment
-        if: inputs.action == 'destroy' && inputs.environment != 'dev'
+      - name: Verify CIDR
         run: |
-          echo "Terraform destroy is only allowed for the dev environment."
-          exit 1
+          echo "$TF_VAR_allowed_cidr_blocks"
 
-      - name: Terraform plan
-        if: inputs.action != 'destroy'
-        run: terraform plan -input=false -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+      - name: Terraform Plan
+        if: github.event.inputs.action != 'destroy'
+        run: terraform plan -input=false -no-color
 
-      - name: Terraform destroy plan
-        if: inputs.action == 'destroy' && inputs.environment == 'dev'
-        run: terraform plan -destroy -input=false -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+      - name: Terraform Destroy Plan
+        if: github.event.inputs.action == 'destroy'
+        run: terraform plan -destroy -input=false -no-color
 
-      - name: Terraform apply
-        if: inputs.action == 'apply'
-        run: terraform apply -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+      - name: Terraform Apply
+        if: |
+          github.event_name == 'workflow_run' ||
+          github.event.inputs.action == 'apply'
+        run: terraform apply -input=false -auto-approve -no-color
 
-      - name: Terraform destroy
-        if: inputs.action == 'destroy' && inputs.environment == 'dev'
-        run: terraform destroy -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+      - name: Wait For EKS Cluster
+        if: |
+          github.event_name == 'workflow_run' ||
+          github.event.inputs.action == 'apply'
+        run: |
+          aws eks wait cluster-active \
+            --region "${AWS_REGION}" \
+            --name "${EKS_CLUSTER_NAME}"
+
+      - name: Verify EKS Cluster
+        if: |
+          github.event_name == 'workflow_run' ||
+          github.event.inputs.action == 'apply'
+        run: |
+          aws eks describe-cluster \
+            --region "${AWS_REGION}" \
+            --name "${EKS_CLUSTER_NAME}"
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform destroy -input=false -auto-approve -no-color
+
