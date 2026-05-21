@@ -76,6 +76,16 @@ jobs:
       - name: Terraform validate
         run: terraform validate
 
+      - name: Set Public IP for EKS API Access 
+        run: 
+          PUBLIC_IP = $(curl -s https://checkip.amazonaws.com)
+          echo "Public IP: ${PUBLIC_IP}" 
+          echo "TF_VAR_allowed_cidr_blocks=[\"${PUBLIC_IP}/32\"]" >> $GITHUB_ENV 
+         
+      - name: Verify CIDR 
+       run: 
+         echo "$TF_VAR_allowed_cidr_blocks"
+
       - name: Show EKS API CIDRs
         run: echo "Using allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
 
