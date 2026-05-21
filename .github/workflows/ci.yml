@@ -4,8 +4,11 @@ on:
   push:
     branches:
       - dev
-      - main
   pull_request:
+    types:
+      - closed
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -13,6 +16,7 @@ permissions:
 jobs:
   validate:
     name: Validate Terraform, Helm, Docker, and image scan
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:

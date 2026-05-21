@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: Terraform action
+        description: Terraform action for dev
         required: true
         default: plan
         type: choice

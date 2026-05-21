@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: Deployment environment
+        description: Deployment environment for testing
         required: true
         default: dev
         type: choice
