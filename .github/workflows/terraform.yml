@@ -9,7 +9,6 @@ on:
       - completed
     branches:
       - dev
-
   workflow_dispatch:
     inputs:
       action:
