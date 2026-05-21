@@ -35,7 +35,7 @@ module "eks" {
   instance_types = ["t3.medium"]
   capacity_type  = "ON_DEMAND"
 
-  
+
 
   # Restrict kubectl API access to known CIDRs only
   # Replace with your office/VPN IP before applying
@@ -60,7 +60,7 @@ variable "env" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks permitted to reach the EKS public API endpoint"
   type        = list(string)
- # default     = ["0.0.0.0/0"] # Dev default only. Override with your public /32 for restricted access.
+  # default     = ["0.0.0.0/0"] # Dev default only. Override with your public /32 for restricted access.
 
   validation {
     condition = alltrue([

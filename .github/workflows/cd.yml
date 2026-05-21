@@ -51,7 +51,7 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -t ${ECR_REPOSITORY}:${GITHUB_SHA} .
+          docker build --file docker/Dockerfile --tag ${ECR_REPOSITORY}:${GITHUB_SHA} .
 
       - name: Tag Docker Image
         run: |
@@ -84,9 +84,11 @@ jobs:
 
       - name: Helm Deploy
         run: |
-          helm upgrade --install app ./helm/app \
-            --namespace default \
+          helm upgrade --install hello-app ./helm/apps/hello-app \
+            --namespace dev \
             --create-namespace \
+            --values ./helm/apps/hello-app/values.yaml \
+            --values ./helm/apps/hello-app/values-dev.yml \
             --set image.repository=${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY} \
             --set image.tag=${GITHUB_SHA}
 
@@ -95,4 +97,3 @@ jobs:
           kubectl get nodes
           kubectl get pods -A
           kubectl get svc
-

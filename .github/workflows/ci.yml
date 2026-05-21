@@ -41,9 +41,10 @@ jobs:
 
       - name: Helm Lint
         run: |
-          helm lint helm/app
+          helm lint helm/apps/hello-app \
+            --values helm/apps/hello-app/values.yaml \
+            --values helm/apps/hello-app/values-dev.yml
 
       - name: Docker Build Test
         run: |
-          docker build -t app:test .
-
+          docker build --file docker/Dockerfile --tag hello-app:test .

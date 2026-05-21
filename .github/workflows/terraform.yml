@@ -15,7 +15,7 @@ on:
       action:
         description: Terraform action
         required: true
-        default: apply
+        default: plan
         type: choice
         options:
           - plan
@@ -36,7 +36,7 @@ env:
 jobs:
 
   terraform:
-    name: Terraform Apply
+    name: Terraform
 
     if: |
       github.event_name == 'workflow_dispatch' ||
@@ -79,15 +79,26 @@ jobs:
         run: terraform validate
 
       - name: Set Public IP For EKS Access
+        shell: bash
         run: |
-          PUBLIC_IP=$(curl -s https://checkip.amazonaws.com)
+          set -euo pipefail
+
+          PUBLIC_IP="$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')"
+
+          if [[ -z "${PUBLIC_IP}" ]]; then
+            echo "Unable to detect runner public IP."
+            exit 1
+          fi
 
           echo "Public IP: ${PUBLIC_IP}"
 
           echo "TF_VAR_allowed_cidr_blocks=[\"${PUBLIC_IP}/32\"]" >> $GITHUB_ENV
 
       - name: Verify CIDR
+        shell: bash
         run: |
+          set -euo pipefail
+
           echo "$TF_VAR_allowed_cidr_blocks"
 
       - name: Terraform Plan
@@ -125,4 +136,3 @@ jobs:
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         run: terraform destroy -input=false -auto-approve -no-color
-
