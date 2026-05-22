@@ -45,7 +45,7 @@ env:
 
 jobs:
   dev-apply-after-ci:
-    name: Dev Apply After CI
+    name: Terraform Workflow 
     if: github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'dev'
@@ -62,7 +62,7 @@ jobs:
         working-directory: terraform/envs/dev
 
     steps:
-      - name: Checkout CI Commit
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
@@ -97,7 +97,7 @@ jobs:
             -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
 
       - name: Terraform Apply
-        run: terraform apply -input=false -auto-approve tfplan
+        run: terraform apply -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}" 
 
       - name: Export Terraform Outputs
         if: inputs.action == 'apply'
@@ -177,7 +177,7 @@ jobs:
 
       - name: Terraform Apply
         if: inputs.action == 'apply'
-        run: terraform apply -input=false -auto-approve tfplan
+        run: terraform apply -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}" tfplan
 
       - name: Export Terraform Outputs
         if: inputs.action == 'apply'
