@@ -9,18 +9,18 @@ on:
 
 permissions:
   contents: read
-  id-token: write
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  RELEASE_NAME: eks-production
-  NAMESPACE: production
-  CHART_PATH: helm/eks-production-platform
 
 jobs:
   deploy:
     if: github.event.workflow_run.conclusion == 'success'
+
     runs-on: ubuntu-latest
+
+    env:
+      CLUSTER_NAME: eks-production-cluster
+      NAMESPACE: production
+      RELEASE_NAME: my-app
+      CHART_PATH: ./helm/my-app
 
     steps:
       - name: Checkout code
@@ -32,44 +32,49 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # Uncomment below and remove key/secret above to use OIDC (recommended)
-          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
-      - name: Verify AWS identity
-        run: aws sts get-caller-identity
+      - name: Download Terraform Outputs
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: terraform.yml
+          name: terraform-outputs
+          path: erraform-outputs/
+
+      - name: Read Cluster Name
+        run: |
+          CLUSTER_NAME=$(jq -r '.eks_cluster_name.value' terraform-output.json)
+         
+          if [ -z "$CLUSTER_NAME" ] || [ "$CLUSTER_NAME" = "null" ]; then
+          echo "Cluster name missing"
+          exit 1
+          fi
+
+          echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
 
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
             --region ${{ secrets.AWS_REGION }} \
-            --name eks-production-cluster
+            --name $CLUSTER_NAME
 
-      - name: Verify kubectl connection
-        run: kubectl get nodes
-
-      - name: Set up Helm
+      - name: Install Helm
         uses: azure/setup-helm@v4
         with:
-          version: latest
+          version: v3.15.2
 
-      - name: Create namespace if not exists
+      - name: Verify Cluster Access
         run: |
-          kubectl get namespace ${{ env.NAMESPACE }} \
-            || kubectl create namespace ${{ env.NAMESPACE }}
+          kubectl get nodes
 
-      - name: Helm upgrade / install
+      - name: Deploy using Helm
         run: |
-          helm upgrade --install ${{ env.RELEASE_NAME }} ${{ env.CHART_PATH }} \
-            --namespace ${{ env.NAMESPACE }} \
-            --values ${{ env.CHART_PATH }}/values.yaml \
-            --set image.tag=${{ github.sha }} \
+          helm upgrade --install $RELEASE_NAME $CHART_PATH \
+            --namespace $NAMESPACE \
+            --create-namespace \
+            --wait \
             --atomic \
-            --timeout 5m \
-            --wait
+            --timeout 10m
 
-      - name: Verify deployment
+      - name: Verify Deployment
         run: |
-          helm status ${{ env.RELEASE_NAME }} --namespace ${{ env.NAMESPACE }}
-          kubectl rollout status deployment/${{ env.RELEASE_NAME }} \
-            --namespace ${{ env.NAMESPACE }} \
-            --timeout=5m
+          kubectl get pods -n $NAMESPACE
