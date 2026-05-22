@@ -51,7 +51,7 @@ jobs:
           path: terraform/terraform-outputs/
 
       - name: Show Terraform outputs
-        run: cat terraform-outputs/terraform-output.json
+        run: cat terraform/terraform-outputs/terraform-output.json
 
       - name: Configure kubectl
         run: |
