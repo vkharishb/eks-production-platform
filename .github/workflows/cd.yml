@@ -48,7 +48,7 @@ jobs:
           # Pin to the exact run that triggered this CD workflow
           run_id: ${{ github.event.workflow_run.id }}
           name: terraform-outputs
-          path: terraform-outputs/
+          path: terraform/terraform-outputs/
 
       - name: Show Terraform outputs
         run: cat terraform-outputs/terraform-output.json
