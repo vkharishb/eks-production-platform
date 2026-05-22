@@ -100,17 +100,17 @@ jobs:
         run: terraform apply -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}" 
 
       - name: Export Terraform Outputs
-        #if: inputs.action == 'apply'
+        #if: success() && inputs.action == 'apply' # Only export outputs if the apply succeeded
         run: |
           terraform output -json > terraform-output.json
           cat terraform-output.json
 
       - name: Upload Terraform Outputs
-        #if: inputs.action == 'apply'
+        #if: success() && inputs.action == 'apply' # Only upload outputs if the apply succeeded
         uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs
-          path: terraform/envs/dev/terraform-output.json
+          path: terraform/terraform-outputs/terraform-output.json
 
   manual:
     name: Manual ${{ inputs.action }} (${{ inputs.environment }}
@@ -188,7 +188,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs
-          path: terraform/envs/${{ inputs.environment }}/terraform-output.json
+          path: terraform/terraform-outputs/terraform-output.json
 
       - name: Terraform Destroy
         if: inputs.action == 'destroy' && inputs.environment == 'dev'

@@ -48,16 +48,21 @@ jobs:
           # Pin to the exact run that triggered this CD workflow
           run_id: ${{ github.event.workflow_run.id }}
           name: terraform-outputs
-          path: terraform-outputs/
+          path: terraform/terraform-outputs/
 
       - name: Show Terraform outputs
-        run: cat terraform-outputs/terraform-output.json
+        run: cat terraform/terraform-outputs/terraform-output.json
+
+      - name: Set Terraform output variables
+        run: |
+          CLUSTER_NAME=$(jq -r '.cluster_name.value' terraform/terraform-outputs/terraform-output.json)
+          echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
 
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
             --region ${{ secrets.AWS_REGION }} \
-            --name eks-production-cluster
+            --name ${{ env.CLUSTER_NAME }}
 
       - name: Verify kubectl connection
         run: kubectl get nodes
