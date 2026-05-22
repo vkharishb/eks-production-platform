@@ -147,3 +147,4 @@ jobs:
         if: env.TF_ACTION == 'destroy' && env.TF_ENVIRONMENT == 'dev'
         working-directory: terraform/envs/${{ env.TF_ENVIRONMENT }}
         run: terraform destroy -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+        
