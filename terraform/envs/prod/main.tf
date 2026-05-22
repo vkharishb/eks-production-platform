@@ -2,18 +2,18 @@ module "vpc" {
   source = "../../modules/vpc"
 
   name = "${var.project_name}-${var.env}-vpc"
-  cidr = "10.0.0.0/16"
+  cidr = "10.1.0.0/16"
 
   azs = ["ap-south-1a", "ap-south-1b"]
 
-  private_subnets = ["10.0.10.0/24", "10.0.20.0/24"]
-  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
+  private_subnets = ["10.1.10.0/24", "10.1.20.0/24"]
+  public_subnets  = ["10.1.1.0/24", "10.1.2.0/24"]
 
   enable_nat_gateway = true
-  single_nat_gateway = true
+  single_nat_gateway = false
 
   tags = {
-    env = "dev"
+    env = "prod"
   }
 }
 
@@ -26,19 +26,19 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   private_subnets = module.vpc.private_subnets
 
-  desired_size = 1
-  min_size     = 1
-  max_size     = 3
+  aws_region = var.aws_region
+
+  desired_size = 3
+  min_size     = 2
+  max_size     = 6
 
   instance_types = ["t3.medium"]
   capacity_type  = "ON_DEMAND"
 
-  # Restrict kubectl API access to known CIDRs only
-  # Replace with your office/VPN IP before applying
   cluster_endpoint_public_access_cidrs = var.allowed_cidr_blocks
 
   tags = {
-    env = "dev"
+    env = "prod"
   }
 }
 
@@ -49,12 +49,27 @@ variable "project_name" {
 
 variable "env" {
   description = "Deployment environment"
-  default     = "dev"
+  default     = "prod"
 }
 
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks permitted to reach the EKS public API endpoint"
   type        = list(string)
-  # Set this in terraform.tfvars (gitignored) — do NOT default to 0.0.0.0/0
-  # Example: ["203.0.113.10/32", "10.0.0.0/8"]
+
+  validation {
+    condition = alltrue([
+      for cidr in var.allowed_cidr_blocks :
+      can(cidrhost(cidr, 0)) &&
+      !can(regex("^10\\.", cidr)) &&
+      !can(regex("^192\\.168\\.", cidr)) &&
+      !can(regex("^172\\.(1[6-9]|2[0-9]|3[0-1])\\.", cidr))
+    ])
+    error_message = "EKS public API access CIDRs must be valid public CIDR blocks. Private ranges like 10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16 are not allowed."
+  }
+}
+
+variable "aws_region" {
+  description = "AWS region for deployment"
+  type        = string
+  default     = "ap-south-1"
 }

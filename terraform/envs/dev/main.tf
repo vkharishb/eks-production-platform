@@ -26,6 +26,8 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   private_subnets = module.vpc.private_subnets
 
+  aws_region = var.aws_region
+
   desired_size = 1
   min_size     = 1
   max_size     = 3
@@ -33,9 +35,12 @@ module "eks" {
   instance_types = ["t3.medium"]
   capacity_type  = "ON_DEMAND"
 
+
+
   # Restrict kubectl API access to known CIDRs only
   # Replace with your office/VPN IP before applying
   cluster_endpoint_public_access_cidrs = var.allowed_cidr_blocks
+
 
   tags = {
     env = "dev"
@@ -55,6 +60,25 @@ variable "env" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks permitted to reach the EKS public API endpoint"
   type        = list(string)
-  # Set this in terraform.tfvars (gitignored) — do NOT default to 0.0.0.0/0
-  # Example: ["203.0.113.10/32", "10.0.0.0/8"]
+  # default     = ["0.0.0.0/0"] # Dev default only. Override with your public /32 for restricted access.
+
+  validation {
+    condition = alltrue([
+      for cidr in var.allowed_cidr_blocks :
+      can(cidrhost(cidr, 0)) &&
+      !can(regex("^10\\.", cidr)) &&
+      !can(regex("^192\\.168\\.", cidr)) &&
+      !can(regex("^172\\.(1[6-9]|2[0-9]|3[0-1])\\.", cidr))
+    ])
+    error_message = "EKS public API access CIDRs must be valid public CIDR blocks. Private ranges like 10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16 are not allowed."
+  }
+
+  # Override this in terraform.tfvars or the manual workflow input.
+  # Example: ["203.0.113.10/32"] or, for open dev access, ["0.0.0.0/0"].
+}
+
+variable "aws_region" {
+  description = "AWS region for deployment"
+  type        = string
+  default     = "ap-south-1"
 }

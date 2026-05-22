@@ -12,7 +12,6 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "tf_state" {
-  # was hardcoded "eks-platform-tf-state-dev" — now variable-driven for multi-env reuse
   bucket = "${var.project_name}-tf-state-${var.env}"
 
   tags = {
@@ -70,7 +69,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "state_expiry" {
 }
 
 resource "aws_dynamodb_table" "lock" {
-  # was hardcoded "eks-platform-tf-state-lock-dev" — now variable-driven
   name         = "${var.project_name}-tf-state-lock-${var.env}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"

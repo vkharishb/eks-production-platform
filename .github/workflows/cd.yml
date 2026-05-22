@@ -1,173 +1,40 @@
 name: CD
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - docker/**
-      - helm/**
-      - k8s/**
-      - .github/workflows/cd.yml
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: Environment to deploy
-        required: true
-        default: dev
-        type: choice
-        options:
-          - dev
-          - prod
+  workflow_run:
+    workflows:
+      - Terraform
+    types:
+      - completed
 
 permissions:
   contents: read
-  packages: write
   id-token: write
 
-env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
-
 jobs:
-  build:
-    name: Build and push image
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+
     runs-on: ubuntu-latest
-    outputs:
-      image_repository: ${{ steps.image.outputs.repository }}
-      image_tag: ${{ steps.image.outputs.tag }}
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Prepare image metadata
-        id: image
-        run: |
-          image_repository="ghcr.io/${GITHUB_REPOSITORY,,}"
-          image_tag="${GITHUB_SHA::12}"
-          echo "repository=${image_repository}" >> "$GITHUB_OUTPUT"
-          echo "tag=${image_tag}" >> "$GITHUB_OUTPUT"
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile
-          push: true
-          tags: ${{ steps.image.outputs.repository }}:${{ steps.image.outputs.tag }}
-
-  deploy-dev:
-    name: Deploy dev
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || inputs.environment == 'dev'
-    environment: dev
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          #role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Update kubeconfig
+      - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
-            --region "${AWS_REGION}" \
-            --name "${EKS_CLUSTER_NAME}"
-        env:
-          EKS_CLUSTER_NAME: ${{ vars.EKS_DEV_CLUSTER_NAME || 'eks-cluster-dev' }}
+            --region ${{ secrets.AWS_REGION }} \
+            --name eks-production-cluster
 
-      - name: Apply Kubernetes platform manifests
+      - name: Deploy to EKS
         run: |
-          kubectl apply -f k8s/namespaces/
-          kubectl apply -f k8s/network/
-          kubectl apply -f k8s/quotas/
-          kubectl apply -f k8s/limits/
-          kubectl apply -f k8s/rbac/
-          kubectl apply -f k8s/storage/
-
-      - name: Deploy Helm release
-        run: |
-          helm upgrade --install hello-app helm/apps/hello-app \
-            --namespace dev \
-            --create-namespace \
-            --values helm/apps/hello-app/values.yml \
-            --values helm/apps/hello-app/values-dev.yml \
-            --set image.repository="${IMAGE_REPOSITORY}" \
-            --set image.tag="${IMAGE_TAG}"
-        env:
-          IMAGE_REPOSITORY: ${{ needs.build.outputs.image_repository }}
-          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
-
-  deploy-prod:
-    name: Deploy prod
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
-    environment: prod
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Update kubeconfig
-        run: |
-          aws eks update-kubeconfig \
-            --region "${AWS_REGION}" \
-            --name "${EKS_CLUSTER_NAME}"
-        env:
-          EKS_CLUSTER_NAME: ${{ vars.EKS_PROD_CLUSTER_NAME || 'eks-cluster-prod' }}
-
-      - name: Apply Kubernetes platform manifests
-        run: |
-          kubectl apply -f k8s/namespaces/
-          kubectl apply -f k8s/network/
-          kubectl apply -f k8s/quotas/
-          kubectl apply -f k8s/limits/
-          kubectl apply -f k8s/rbac/
-          kubectl apply -f k8s/storage/
-
-      - name: Deploy Helm release
-        run: |
-          helm upgrade --install hello-app helm/apps/hello-app \
-            --namespace prod \
-            --create-namespace \
-            --values helm/apps/hello-app/values.yml \
-            --values helm/apps/hello-app/values-prod.yml \
-            --set image.repository="${IMAGE_REPOSITORY}" \
-            --set image.tag="${IMAGE_TAG}"
-        env:
-          IMAGE_REPOSITORY: ${{ needs.build.outputs.image_repository }}
-          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+          kubectl apply -f k8s/
