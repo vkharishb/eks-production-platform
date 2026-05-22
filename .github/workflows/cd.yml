@@ -9,18 +9,19 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  actions: read  # required by dawidd6/action-download-artifact to list artifacts
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RELEASE_NAME: eks-production
+  NAMESPACE: production
+  CHART_PATH: helm/eks-production-platform
 
 jobs:
   deploy:
     if: github.event.workflow_run.conclusion == 'success'
-
     runs-on: ubuntu-latest
-
-    env:
-      CLUSTER_NAME: eks-production-cluster
-      NAMESPACE: production
-      RELEASE_NAME: my-app
-      CHART_PATH: ./helm/my-app
 
     steps:
       - name: Checkout code
@@ -32,49 +33,58 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Uncomment below and remove key/secret above to use OIDC (recommended)
+          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
-      - name: Download Terraform Outputs
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Download Terraform outputs artifact
         uses: dawidd6/action-download-artifact@v6
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: terraform.yml
+          workflow_conclusion: success
+          # Pin to the exact run that triggered this CD workflow
+          run_id: ${{ github.event.workflow_run.id }}
           name: terraform-outputs
-          path: erraform-outputs/
+          path: terraform-outputs/
 
-      - name: Read Cluster Name
-        run: |
-          CLUSTER_NAME=$(jq -r '.eks_cluster_name.value' terraform-output.json)
-         
-          if [ -z "$CLUSTER_NAME" ] || [ "$CLUSTER_NAME" = "null" ]; then
-          echo "Cluster name missing"
-          exit 1
-          fi
-
-          echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
+      - name: Show Terraform outputs
+        run: cat terraform-outputs/terraform-output.json
 
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
             --region ${{ secrets.AWS_REGION }} \
-            --name $CLUSTER_NAME
+            --name eks-production-cluster
 
-      - name: Install Helm
+      - name: Verify kubectl connection
+        run: kubectl get nodes
+
+      - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
-          version: v3.15.2
+          version: latest
 
-      - name: Verify Cluster Access
+      - name: Create namespace if not exists
         run: |
-          kubectl get nodes
+          kubectl get namespace ${{ env.NAMESPACE }} \
+            || kubectl create namespace ${{ env.NAMESPACE }}
 
-      - name: Deploy using Helm
+      - name: Helm upgrade / install
         run: |
-          helm upgrade --install $RELEASE_NAME $CHART_PATH \
-            --namespace $NAMESPACE \
-            --create-namespace \
-            --wait \
+          helm upgrade --install ${{ env.RELEASE_NAME }} ${{ env.CHART_PATH }} \
+            --namespace ${{ env.NAMESPACE }} \
+            --values ${{ env.CHART_PATH }}/values.yaml \
+            --set image.tag=${{ github.sha }} \
             --atomic \
-            --timeout 10m
+            --timeout 5m \
+            --wait
 
-      - name: Verify Deployment
+      - name: Verify deployment
         run: |
-          kubectl get pods -n $NAMESPACE
+          helm status ${{ env.RELEASE_NAME }} --namespace ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/${{ env.RELEASE_NAME }} \
+            --namespace ${{ env.NAMESPACE }} \
+            --timeout=5m
