@@ -38,7 +38,7 @@ jobs:
         with:
           workflow: terraform.yml
           name: terraform-outputs
-          path: .
+          path: erraform-outputs/
 
       - name: Read Cluster Name
         run: |
