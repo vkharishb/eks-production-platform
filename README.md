@@ -143,7 +143,6 @@ What it does:
 *Terraform #74 summary — Status: Success, total duration 58s, triggered automatically via `workflow_run` after CI, commit `498d549`.*
 
 ![Terraform run #74 — step detail](docs/pics/terraform-proof-steps.png)
-![Terraform run Local — step detail](docs/pics/terraform output.jpg)
 *All steps passed: Set up Terraform → Configure AWS Credentials → Check Terraform Formatting → Terraform Init (15s) → Terraform Validate → Show EKS API CIDRs → Terraform Plan (16s) → Terraform Apply (17s).*
 
 
