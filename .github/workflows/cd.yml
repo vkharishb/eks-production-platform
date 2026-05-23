@@ -47,18 +47,20 @@ jobs:
           # on workflow_dispatch it is empty and causes the download to fail.
           # Omitting run_id makes the action fetch from the latest successful run,
           # which is correct for both trigger types.
-          path: terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json
+          path: terraform-outputs/
 
       - name: Show Terraform outputs
-        run: cat terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json
+        run: cat terraform-outputs/terraform-output.json
+
 
       - name: Set Terraform output variables
+        id: tf_outputs
         run: |
           echo "=== Terraform outputs ==="
-          cat terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json
+          cat terraform-outputs/terraform-output.json
 
-          CLUSTER_NAME=$(jq -r '.cluster_name.value' terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json)
-          CLUSTER_ENDPOINT=$(jq -r '.cluster_endpoint.value' terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json)
+          CLUSTER_NAME=$(jq -r '.cluster_name.value' terraform-outputs/terraform-output.json)
+          CLUSTER_ENDPOINT=$(jq -r '.cluster_endpoint.value' terraform-outputs/terraform-output.json)
 
           echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
           echo "cluster_endpoint=${CLUSTER_ENDPOINT}" >> $GITHUB_OUTPUT
@@ -67,7 +69,6 @@ jobs:
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
-            # AWS_REGION is a secret, not an env var — use secrets.AWS_REGION
             --region ${{ secrets.AWS_REGION }} \
             --name ${{ steps.tf_outputs.outputs.cluster_name }}
 
