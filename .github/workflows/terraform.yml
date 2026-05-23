@@ -101,23 +101,6 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
 
-      - name: Export Terraform Outputs
-        run: |
-          mkdir -p terraform-outputs
-          terraform output -json > terraform-outputs/terraform-output.json
-          echo "=== Terraform outputs written ==="
-          cat terraform-outputs/terraform-output.json
-
-      - name: Upload Terraform Outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-outputs
-          #  path is repo-root-relative; working-directory is terraform/envs/dev
-          # so the file actually lands at terraform/envs/dev/terraform-outputs/terraform-output.json
-          path: terraform/envs/dev/terraform-outputs/terraform-output.json
-          retention-days: 1
-          if-no-files-found: error
-
   manual:
     # added missing closing parenthesis in job name
     name: Manual ${{ inputs.action }} (${{ inputs.environment }})
@@ -187,23 +170,6 @@ jobs:
       - name: Terraform Apply
         if: inputs.action == 'apply'
         run: terraform apply -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}" tfplan
-
-      - name: Export Terraform Outputs
-        run: |
-          mkdir -p terraform-outputs
-          terraform output -json > terraform-outputs/terraform-output.json
-          echo "=== Terraform outputs written ==="
-          cat terraform-outputs/terraform-output.json
-
-      - name: Upload Terraform Outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-outputs
-          # path is repo-root-relative; working-directory is terraform/envs/${{ inputs.environment }}
-          # so the file lands at terraform/envs/<env>/terraform-outputs/terraform-output.json
-          path: terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json
-          retention-days: 1
-          if-no-files-found: error
 
       - name: Terraform Destroy
         if: inputs.action == 'destroy' && inputs.environment == 'dev'

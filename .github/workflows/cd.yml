@@ -37,40 +37,11 @@ jobs:
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
-      - name: Download Terraform outputs artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          name: terraform-outputs
-          workflow: terraform.yml
-          workflow_conclusion: success
-          # run_id is only available on workflow_run triggers;
-          # on workflow_dispatch it is empty and causes the download to fail.
-          # Omitting run_id makes the action fetch from the latest successful run,
-          # which is correct for both trigger types.
-          path: terraform-outputs/
-
-      - name: Show Terraform outputs
-        run: cat terraform-outputs/terraform-output.json
-
-
-      - name: Set Terraform output variables
-        id: tf_outputs
-        run: |
-          echo "=== Terraform outputs ==="
-          cat terraform-outputs/terraform-output.json
-
-          CLUSTER_NAME=$(jq -r '.cluster_name.value' terraform-outputs/terraform-output.json)
-          CLUSTER_ENDPOINT=$(jq -r '.cluster_endpoint.value' terraform-outputs/terraform-output.json)
-
-          echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
-          echo "cluster_endpoint=${CLUSTER_ENDPOINT}" >> $GITHUB_OUTPUT
-          echo "Cluster: ${CLUSTER_NAME} | Endpoint: ${CLUSTER_ENDPOINT}"
-
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
             --region ${{ secrets.AWS_REGION }} \
-            --name ${{ steps.tf_outputs.outputs.cluster_name }}
+            --name eks-cluster-dev
 
       - name: Verify kubectl connection
         run: kubectl get nodes
