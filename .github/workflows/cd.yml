@@ -20,6 +20,7 @@ jobs:
   deploy:
     name: deploy
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout code
@@ -36,37 +37,11 @@ jobs:
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
-      - name: Download Terraform outputs artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          name: terraform-outputs
-          workflow: terraform.yml
-          workflow_conclusion: success
-          # Pin to the exact run that triggered this CD workflow
-          run_id: ${{ github.event.workflow_run.id }}
-          path: terraform/terraform-outputs/
-
-      - name: Show Terraform outputs
-        run: cat terraform/terraform-outputs/terraform-output.json
-
-      - name: Set Terraform output variables
-        run: |
-          echo "=== Terraform outputs ==="
-          cat terraform-outputs/terraform-output.json
-
-          # Parse key values for subsequent steps
-          CLUSTER_NAME=$(jq -r '.cluster_name.value' terraform-outputs/terraform-output.json)
-          CLUSTER_ENDPOINT=$(jq -r '.cluster_endpoint.value // .eks_cluster_endpoint.value' terraform-outputs/terraform-output.json)
-
-          echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
-          echo "cluster_endpoint=${CLUSTER_ENDPOINT}" >> $GITHUB_OUTPUT
-          echo "Cluster: ${CLUSTER_NAME} | Endpoint: ${CLUSTER_ENDPOINT}"
-
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
-            --region ${{ env.AWS_REGION }} \
-            --name ${{ steps.tf_outputs.outputs.cluster_name }}
+            --region ${{ secrets.AWS_REGION }} \
+            --name eks-cluster-dev
 
       - name: Verify kubectl connection
         run: kubectl get nodes
@@ -95,4 +70,4 @@ jobs:
         run: |
           helm status ${{ env.RELEASE_NAME }} --namespace ${{ env.NAMESPACE }}
           kubectl rollout status deployment/${{ env.RELEASE_NAME }} \
-            --namespace ${{ env.NAMESPACE }} \
+            --namespace ${{ env.NAMESPACE }}
