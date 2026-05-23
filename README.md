@@ -1,8 +1,20 @@
 # EKS Production Platform
 
-Production-grade AWS EKS platform provisioned with Terraform, deployed via Helm, and automated end-to-end with GitHub Actions.
+A production-grade AWS EKS platform built end-to-end with Terraform, Helm, and GitHub Actions. Infrastructure is provisioned automatically, applications are deployed atomically, and every pipeline stage is verified against a live AWS environment.
 
-The pipeline runs in three stages: **CI** validates code quality, **Terraform** provisions infrastructure, and **CD** deploys the application — each stage triggering the next automatically on the `dev` branch.
+---
+
+## ✅ Pipeline Proof — Live Runs
+
+All three pipeline stages have been executed successfully against a real AWS environment. Click each link to view the full run logs.
+
+| Stage | Status | Run Link |
+|---|---|---|
+| **CI** — Build & push Docker image | ✅ Passed | [View CI run →](https://github.com/vkharishb/eks-production-platform/actions/runs/26323786289) |
+| **Terraform** — Provision EKS infrastructure | ✅ Passed | [View Terraform run →](https://github.com/vkharishb/eks-production-platform/actions/runs/26323802184) |
+| **CD** — Helm deploy to EKS | ✅ Passed | [View CD run →](https://github.com/vkharishb/eks-production-platform/actions/runs/26323820158) |
+
+> These are real GitHub Actions runs, not mocked output. The Terraform run provisioned an EKS cluster in `ap-south-1`; the CD run deployed the `hello-app` Helm release to the `production` namespace on that cluster.
 
 ---
 
@@ -11,25 +23,32 @@ The pipeline runs in three stages: **CI** validates code quality, **Terraform** 
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml              # Lint, validate, build, scan
-│   ├── terraform.yml       # Provision AWS infrastructure
-│   └── cd.yml              # Deploy to EKS via Helm
+│   ├── ci.yml              # Build Docker image and push to DockerHub
+│   ├── terraform.yml       # Provision AWS infrastructure (auto after CI, or manual)
+│   └── cd.yml              # Deploy hello-app to EKS via Helm
 │
 ├── terraform/
-│   ├── global/s3-backend/  # Remote state bootstrap (S3 + DynamoDB)
+│   ├── global/s3-backend/  # Bootstrap: S3 state bucket + DynamoDB lock table
 │   ├── modules/
-│   │   ├── vpc/            # VPC, subnets, NAT gateway
-│   │   └── eks/            # EKS cluster, node group, add-ons, IRSA
+│   │   └── eks/            # EKS cluster, node group, managed add-ons, IRSA
 │   └── envs/
-│       ├── dev/            # Dev environment composition
-│       └── prod/           # Prod environment composition
+│       ├── dev/            # Dev environment Terraform root
+│       └── prod/           # Prod environment Terraform root
 │
 ├── helm/
-│   └── eks-production-platform/   # App Helm chart (Deployment, Service, Ingress, HPA)
+│   └── apps/hello-app/     # Application Helm chart (Deployment, Service, Ingress, HPA)
 │
-├── k8s/                    # Platform manifests (namespaces, RBAC, quotas, NetworkPolicies, StorageClass)
+├── k8s/                    # Platform manifests
+│   ├── namespaces/         # dev and prod namespaces
+│   ├── network/            # NetworkPolicies (default-deny + allow-internal)
+│   ├── quotas/             # ResourceQuotas per environment
+│   ├── limits/             # LimitRanges per environment
+│   ├── rbac/               # Roles and RoleBindings
+│   └── storage/            # StorageClass definition
+│
 └── docker/
-    └── Dockerfile          # Minimal HTTP echo image
+    ├── Dockerfile          # Minimal Go HTTP echo server image
+    └── hello-server.go     # Echo server source
 ```
 
 ---
@@ -42,77 +61,112 @@ AWS ap-south-1
 └── VPC 10.0.0.0/16
     ├── Public subnets
     │   ├── NAT Gateway
-    │   └── Internet-facing ALB  (provisioned by AWS Load Balancer Controller)
+    │   └── Internet-facing ALB  (AWS Load Balancer Controller via IRSA)
     │
     └── Private subnets
         └── EKS Managed Node Group
-            └── Application pods (hello-app)
+            └── hello-app pods (Deployment + HPA)
 
 EKS Cluster
 ├── Kubernetes 1.32
 ├── Managed add-ons: VPC CNI · CoreDNS · kube-proxy · EBS CSI
-└── IRSA roles: EBS CSI Driver · AWS Load Balancer Controller
+└── IRSA roles:  EBS CSI Driver · AWS Load Balancer Controller
 
-State Backend
-├── S3 bucket  (versioned, per environment)
-└── DynamoDB   (state locking)
+Terraform State Backend
+├── S3 bucket  (versioned, per-environment prefix)
+└── DynamoDB   (state lock table)
+
+CI/CD (GitHub Actions)
+  CI ──► Terraform ──► CD
+  (push to dev triggers full chain automatically)
 ```
 
 ---
 
 ## Environments
 
-| Setting            | Dev                  | Prod                       |
-|--------------------|----------------------|----------------------------|
-| NAT Gateways       | 1 shared             | 1 per AZ                   |
-| EKS nodes          | min 1 / desired 1 / max 3 | min 2 / desired 3 / max 6 |
-| App replicas       | 1                    | 3                          |
-| HPA                | Disabled             | Enabled (3–10 replicas)    |
-| Hostname           | `hello-dev.internal` | `hello.example.com`        |
+| Setting | Dev | Prod |
+|---|---|---|
+| NAT Gateways | 1 shared | 1 per AZ |
+| EKS nodes | min 1 / desired 1 / max 3 | min 2 / desired 3 / max 6 |
+| App replicas | 1 | 3 |
+| HPA | Disabled | Enabled (3–10 replicas) |
+| Ingress hostname | `hello-dev.internal` | `hello.example.com` |
 
 ---
 
 ## CI/CD Pipeline
 
-### CI — `.github/workflows/ci.yml`
+The three workflows chain automatically on the `dev` branch. Each stage triggers the next only on success.
 
-Triggers on push to `dev` / `main` and on all pull requests.
+### Stage 1 — CI (`ci.yml`)
 
-- `terraform fmt -check` across `terraform/`
-- `terraform init` + `terraform validate` for dev and prod
-- `helm lint` and `helm template` for dev and prod values
-- Docker image build
-- Trivy scan (HIGH and CRITICAL vulnerabilities)
+**Triggers:** push to `dev` or `main`.
 
-### Terraform — `.github/workflows/terraform.yml`
+What it does:
+- Builds the Docker image from `docker/Dockerfile` tagged with the commit SHA
+- Logs in to DockerHub using `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets
+- Pushes the image as `<dockerhub-user>/eks-app:<git-sha>`
 
-Triggers automatically after CI succeeds on `dev`. Also supports manual dispatch.
+**[→ Proof: CI run #26323786289](https://github.com/vkharishb/eks-production-platform/actions/runs/26323786289)**
 
-**Manual inputs:**
+![CI run — all steps passed](docs/pics/ci-proof.png)
+*CI build job succeeded in 39s — commit `helm verify step updated #113`. All steps green: Set up Docker Buildx → Login to DockerHub → Build Docker image → Push Docker image.*
 
-| Input                 | Options                  | Default         |
-|-----------------------|--------------------------|-----------------|
-| `environment`         | `dev` / `prod`           | `dev`           |
-| `action`              | `plan` / `apply` / `destroy` | `plan`      |
-| `allowed_cidr_blocks` | JSON CIDR list           | `["0.0.0.0/0"]` |
+---
 
-> `destroy` is restricted to the `dev` environment only.
+### Stage 2 — Terraform (`terraform.yml`)
 
-On `apply`, Terraform outputs (cluster name, endpoint, VPC ID, subnets) are exported as a workflow artifact consumed by the CD job.
+**Triggers:** automatically after CI succeeds on `dev`; also supports `workflow_dispatch` for manual operations.
+
+**Automatic flow (after CI):**
+1. Checks out the exact commit SHA that triggered CI
+2. Configures AWS credentials
+3. Runs `terraform fmt -check`, `terraform init`, `terraform validate`
+4. Runs `terraform plan` then `terraform apply -auto-approve` against `terraform/envs/dev`
+
+**Manual dispatch inputs:**
+
+| Input | Options | Default |
+|---|---|---|
+| `environment` | `dev` / `prod` | `dev` |
+| `action` | `plan` / `apply` / `destroy` | `plan` |
+| `allowed_cidr_blocks` | JSON CIDR list | `["0.0.0.0/0"]` |
+
+> `destroy` is hard-blocked on `prod`. The `Guard Destroy Environment` step exits non-zero if destroy is attempted against any environment other than `dev`.
 
 **Required secrets:** `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` · `AWS_REGION`
 
-### CD — `.github/workflows/cd.yml`
+**[→ Proof: Terraform run #26323802184](https://github.com/vkharishb/eks-production-platform/actions/runs/26323802184)**
 
-Triggers automatically after Terraform succeeds.
+![Terraform run #74 — summary](docs/pics/terraform-proof-summary.png)
+*Terraform #74 summary — Status: Success, total duration 58s, triggered automatically via `workflow_run` after CI, commit `498d549`.*
 
-1. Configures `kubectl` against the correct EKS cluster
-2. Creates the Kubernetes namespace if absent
-3. Runs `helm upgrade --install` with `--atomic` and `--wait`
-4. Verifies rollout with `helm status` and `kubectl rollout status`
-5. 
+![Terraform run #74 — step detail](docs/pics/terraform-proof-steps.png)
+![Terraform run Local — step detail](docs/pics/terraform output.jpg)
+*All steps passed: Set up Terraform → Configure AWS Credentials → Check Terraform Formatting → Terraform Init (15s) → Terraform Validate → Show EKS API CIDRs → Terraform Plan (16s) → Terraform Apply (17s).*
 
-**Required secrets:** `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` · `AWS_REGION` · `AWS_ROLE_ARN`
+
+---
+
+### Stage 3 — CD (`cd.yml`)
+
+**Triggers:** automatically after Terraform succeeds on `main`; also supports `workflow_dispatch`.
+
+Steps:
+1. Configures AWS credentials and assumes `AWS_ROLE_TO_ASSUME` via OIDC session `GitHubActionsCD`
+2. Calls `aws eks update-kubeconfig` to target `eks-cluster-dev`
+3. Verifies connectivity with `kubectl get nodes`
+4. Creates the `production` namespace if it doesn't already exist
+5. Runs `helm upgrade --install hello ./helm/apps/hello-app --namespace production --set image.tag=<sha> --rollback-on-failure --timeout 5m --wait`
+6. Verifies with `helm status hello` and `kubectl rollout status deployment/hello-hello-app`
+
+**Required secrets:** `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` · `AWS_REGION` · `AWS_ROLE_TO_ASSUME`
+
+**[→ Proof: CD run #26323820158](https://github.com/vkharishb/eks-production-platform/actions/runs/26323820158)**
+
+![CD run #44 — all steps passed](docs/pics/cd-proof.png)
+*CD #44 deploy job succeeded in 47s — all steps green: Configure AWS Credentials → Verify AWS identity → Configure kubectl → Verify kubectl connection → Set up Helm → Create namespace if not exists → Helm upgrade / install (26s) → Verify deployment (4s).*
 
 ---
 
@@ -124,11 +178,11 @@ Triggers automatically after Terraform succeeds.
 - Terraform >= 1.5
 - kubectl
 - Helm >= 3
-- An AWS account with permissions to create VPCs, EKS clusters, and IAM roles
+- AWS account with permissions to create VPCs, EKS clusters, and IAM roles
 
 ### 1. Bootstrap Remote State
 
-Run once per environment before any Terraform apply:
+Run once before any `terraform apply`. Creates the S3 bucket and DynamoDB table used for state storage and locking.
 
 ```bash
 cd terraform/global/s3-backend
@@ -170,25 +224,29 @@ kubectl apply -f k8s/storage/
 ### 5. Deploy the Application
 
 ```bash
-helm upgrade --install eks-production ./helm/eks-production-platform \
+helm upgrade --install hello ./helm/apps/hello-app \
   --namespace production \
   --create-namespace \
-  --values helm/eks-production-platform/values.yaml \
-  --atomic \
+  --values helm/apps/hello-app/values.yaml \
+  --rollback-on-failure \
+  --timeout 5m \
   --wait
 ```
 
 ---
 
-## GitHub Actions Setup
+## GitHub Actions Secrets
 
-Add the following secrets to the repository under **Settings → Secrets and variables → Actions**:
+Add these under **Settings → Secrets and variables → Actions**:
 
-| Secret                  | Description                          |
-|-------------------------|--------------------------------------|
-| `AWS_ACCESS_KEY_ID`     | IAM access key                       |
-| `AWS_SECRET_ACCESS_KEY` | IAM secret key                       |
-| `AWS_REGION`            | Target region (e.g. `ap-south-1`)    |
+| Secret | Description |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | IAM access key |
+| `AWS_SECRET_ACCESS_KEY` | IAM secret key |
+| `AWS_REGION` | Target region (e.g. `ap-south-1`) |
+| `AWS_ROLE_TO_ASSUME` | IAM role ARN assumed by the CD job |
+| `DOCKERHUB_USERNAME` | DockerHub account username |
+| `DOCKERHUB_TOKEN` | DockerHub access token |
 
 Push to the `dev` branch to trigger the full CI → Terraform → CD pipeline automatically.
 
@@ -198,23 +256,25 @@ Push to the `dev` branch to trigger the full CI → Terraform → CD pipeline au
 
 ```bash
 # Remove the Helm release
-helm uninstall eks-production -n production
+helm uninstall hello -n production
 
 # Destroy infrastructure (dev first, prod separately)
 cd terraform/envs/dev && terraform destroy
 cd terraform/envs/prod && terraform destroy
 ```
 
-> Destroy the S3 backend last. The state bucket must be emptied manually before Terraform can delete it (versioned buckets are non-empty by default).
+> Destroy the S3 backend last. The state bucket must be emptied manually before Terraform can delete it — versioned buckets retain all object versions and are non-empty by default.
 
 ---
 
 ## Key Design Decisions
 
-**Cluster name read from Terraform outputs, not hardcoded.** The CD workflow parses `cluster_name` from the `terraform-output.json` artifact, so renaming the cluster in Terraform never silently breaks the deploy step.
+**Commit-pinned Docker image.** The CI workflow tags the image with `${{ github.sha }}` and the CD workflow passes the same SHA as `--set image.tag`. There is no `latest` tag in the pipeline — every deploy is traceable to an exact commit.
 
-**Artifact pinned to the exact triggering run.** The CD workflow downloads the Terraform outputs artifact using `run_id: ${{ github.event.workflow_run.id }}`, preventing a race condition where a newer artifact from a different run could be consumed.
+**Role assumption in CD.** The CD job configures AWS credentials and then assumes `AWS_ROLE_TO_ASSUME` in the same step, producing a short-lived session (`GitHubActionsCD`) with only the permissions needed to operate the cluster. Static key exposure is minimised.
 
-**Destroy gated to dev only.** The `Guard Destroy Environment` step in the Terraform workflow exits with an error if `destroy` is requested against `prod`, preventing accidental production teardown via manual dispatch.
+**Destroy gated to dev only.** The `Guard Destroy Environment` step exits non-zero if `destroy` is dispatched against any environment other than `dev`, preventing accidental production teardown via the manual dispatch UI.
 
-**OIDC-ready.** AWS credentials are currently configured with access keys. To switch to keyless authentication, uncomment `role-to-assume` in the workflow files and remove the key/secret inputs.
+**Helm rollback on failure.** `--rollback-on-failure` is passed to every `helm upgrade --install`. If the new release fails to become healthy within the 5-minute timeout, Helm automatically rolls back to the previous revision, keeping the cluster in a known-good state.
+
+**OIDC-ready.** The `role-to-assume` field is already wired in `cd.yml`. Switching from static access keys to keyless OIDC authentication requires only adding the GitHub OIDC provider to IAM and populating `AWS_ROLE_TO_ASSUME` — no workflow changes needed.
