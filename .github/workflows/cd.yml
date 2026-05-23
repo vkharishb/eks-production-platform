@@ -32,6 +32,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          
 
       - name: Verify AWS identity
         run: aws sts get-caller-identity
@@ -46,21 +47,18 @@ jobs:
           # on workflow_dispatch it is empty and causes the download to fail.
           # Omitting run_id makes the action fetch from the latest successful run,
           # which is correct for both trigger types.
-          path: terraform/terraform-outputs/
+          path: terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json
 
       - name: Show Terraform outputs
-        run: cat terraform/terraform-outputs/terraform-output.json
+        run: cat terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json
 
       - name: Set Terraform output variables
-        id: tf_outputs
         run: |
           echo "=== Terraform outputs ==="
-          #  was reading from terraform-outputs/ (missing terraform/ prefix)
-          # download path is terraform/terraform-outputs/ so all reads must use that prefix
-          cat terraform/terraform-outputs/terraform-output.json
+          cat terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json
 
-          CLUSTER_NAME=$(jq -r '.cluster_name.value' terraform/terraform-outputs/terraform-output.json)
-          CLUSTER_ENDPOINT=$(jq -r '.cluster_endpoint.value' terraform/terraform-outputs/terraform-output.json)
+          CLUSTER_NAME=$(jq -r '.cluster_name.value' terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json)
+          CLUSTER_ENDPOINT=$(jq -r '.cluster_endpoint.value' terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json)
 
           echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
           echo "cluster_endpoint=${CLUSTER_ENDPOINT}" >> $GITHUB_OUTPUT
@@ -69,7 +67,7 @@ jobs:
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
-            # FIX BUG 6: AWS_REGION is a secret, not an env var — use secrets.AWS_REGION
+            # AWS_REGION is a secret, not an env var — use secrets.AWS_REGION
             --region ${{ secrets.AWS_REGION }} \
             --name ${{ steps.tf_outputs.outputs.cluster_name }}
 

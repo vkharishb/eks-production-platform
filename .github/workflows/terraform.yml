@@ -114,7 +114,7 @@ jobs:
           name: terraform-outputs
           #  path is repo-root-relative; working-directory is terraform/envs/dev
           # so the file actually lands at terraform/envs/dev/terraform-outputs/terraform-output.json
-          path: terraform/envs/dev/terraform-outputs/terraform-output.json
+          path: terraform/envs/${{ inputs.environment }}/terraform-outputs/terraform-output.json
           retention-days: 1
           if-no-files-found: error
 
