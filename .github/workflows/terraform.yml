@@ -102,8 +102,10 @@ jobs:
       - name: Export Terraform Outputs
         #if: success() && inputs.action == 'apply' # Only export outputs if the apply succeeded
         run: |
-          terraform output -json > terraform-output.json
-          cat terraform-output.json
+          mkdir -p terraform-outputs
+          terraform output -json > terraform-outputs/terraform-output.json
+          echo "=== Terraform outputs written ==="
+          cat terraform-outputs/terraform-output.json
 
       - name: Upload Terraform Outputs
         #if: success() && inputs.action == 'apply' # Only upload outputs if the apply succeeded
@@ -111,6 +113,8 @@ jobs:
         with:
           name: terraform-outputs
           path: terraform/terraform-outputs/terraform-output.json
+          retention-days: 1
+          if-no-files-found: error
 
   manual:
     name: Manual ${{ inputs.action }} (${{ inputs.environment }}
@@ -181,14 +185,18 @@ jobs:
 
       - name: Export Terraform Outputs
         run: |
-          terraform output -json > terraform-output.json
-          cat terraform-output.json
+          mkdir -p terraform-outputs
+          terraform output -json > terraform-outputs/terraform-output.json
+          echo "=== Terraform outputs written ==="
+          cat terraform-outputs/terraform-output.json
 
       - name: Upload Terraform Outputs
         uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs
           path: terraform/terraform-outputs/terraform-output.json
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Terraform Destroy
         if: inputs.action == 'destroy' && inputs.environment == 'dev'

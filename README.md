@@ -1,104 +1,135 @@
 # EKS Production Platform
 
-Production-oriented AWS EKS platform built with Terraform, Kubernetes manifests, Helm, Docker, and GitHub Actions.
+Production-grade AWS EKS platform provisioned with Terraform, deployed via Helm, and automated end-to-end with GitHub Actions.
 
-This repository provisions the AWS network and EKS foundation, applies baseline Kubernetes guardrails, builds a small container image, and deploys the `hello-app` Helm release into `dev` or `prod`.
+The pipeline runs in three stages: **CI** validates code quality, **Terraform** provisions infrastructure, and **CD** deploys the application — each stage triggering the next automatically on the `dev` branch.
 
-## What Is Included
+---
 
-| Area | Path | Purpose |
-|---|---|---|
-| Terraform environments | `terraform/envs/dev`, `terraform/envs/prod` | Compose the VPC and EKS modules per environment |
-| Terraform modules | `terraform/modules/vpc`, `terraform/modules/eks` | Reusable VPC and EKS building blocks |
-| Remote state bootstrap | `terraform/global/s3-backend` | S3 state bucket and DynamoDB lock table |
-| Helm app | `helm/apps/hello-app` | App Deployment, Service, Ingress, and HPA templates |
-| Kubernetes platform manifests | `k8s/` | Namespaces, quotas, limits, RBAC, NetworkPolicies, and gp3 StorageClass |
-| Container image | `docker/Dockerfile` | Minimal local HTTP echo demo image |
-| Automation | `.github/workflows` | CI validation, Terraform automation, and CD deployment |
+## Repository Structure
+
+```
+.
+├── .github/workflows/
+│   ├── ci.yml              # Lint, validate, build, scan
+│   ├── terraform.yml       # Provision AWS infrastructure
+│   └── cd.yml              # Deploy to EKS via Helm
+│
+├── terraform/
+│   ├── global/s3-backend/  # Remote state bootstrap (S3 + DynamoDB)
+│   ├── modules/
+│   │   ├── vpc/            # VPC, subnets, NAT gateway
+│   │   └── eks/            # EKS cluster, node group, add-ons, IRSA
+│   └── envs/
+│       ├── dev/            # Dev environment composition
+│       └── prod/           # Prod environment composition
+│
+├── helm/
+│   └── eks-production-platform/   # App Helm chart (Deployment, Service, Ingress, HPA)
+│
+├── k8s/                    # Platform manifests (namespaces, RBAC, quotas, NetworkPolicies, StorageClass)
+└── docker/
+    └── Dockerfile          # Minimal HTTP echo image
+```
+
+---
 
 ## Architecture
 
-```text
+```
 AWS ap-south-1
+│
+└── VPC 10.0.0.0/16
+    ├── Public subnets
+    │   ├── NAT Gateway
+    │   └── Internet-facing ALB  (provisioned by AWS Load Balancer Controller)
+    │
+    └── Private subnets
+        └── EKS Managed Node Group
+            └── Application pods (hello-app)
 
-VPC 10.0.0.0/16
-  Public subnets
-    - NAT gateway
-    - Internet-facing ALB from Kubernetes Ingress
+EKS Cluster
+├── Kubernetes 1.32
+├── Managed add-ons: VPC CNI · CoreDNS · kube-proxy · EBS CSI
+└── IRSA roles: EBS CSI Driver · AWS Load Balancer Controller
 
-  Private subnets
-    - EKS managed node group
-    - Application pods
-
-EKS
-  - Kubernetes 1.32
-  - Managed add-ons: VPC CNI, CoreDNS, kube-proxy, EBS CSI
-  - IRSA for EBS CSI and AWS Load Balancer Controller
-
-State
-  - S3 backend
-  - DynamoDB state locking
+State Backend
+├── S3 bucket  (versioned, per environment)
+└── DynamoDB   (state locking)
 ```
 
-## Environment Differences
+---
 
-| Setting | Dev | Prod |
-|---|---:|---:|
-| NAT gateways | 1 shared NAT gateway | NAT gateway per AZ |
-| EKS desired nodes | 1 | 3 |
-| EKS min nodes | 1 | 2 |
-| EKS max nodes | 3 | 6 |
-| App replicas | 1 | 3 |
-| App HPA | Disabled | Enabled, 3 to 10 replicas |
-| App hostname | `hello-dev.internal` | `hello.example.com` |
+## Environments
 
-## Workflows
+| Setting            | Dev                  | Prod                       |
+|--------------------|----------------------|----------------------------|
+| NAT Gateways       | 1 shared             | 1 per AZ                   |
+| EKS nodes          | min 1 / desired 1 / max 3 | min 2 / desired 3 / max 6 |
+| App replicas       | 1                    | 3                          |
+| HPA                | Disabled             | Enabled (3–10 replicas)    |
+| Hostname           | `hello-dev.internal` | `hello.example.com`        |
 
-### CI
+---
 
-`.github/workflows/ci.yml` runs on pushes to `dev` and `main`, and on pull requests.
+## CI/CD Pipeline
 
-It checks:
+### CI — `.github/workflows/ci.yml`
 
-- Terraform formatting across `terraform/`
-- Terraform init and validate for `dev`
-- Terraform init and validate for `prod`
-- Helm chart linting
-- Helm rendering for dev and prod values
+Triggers on push to `dev` / `main` and on all pull requests.
+
+- `terraform fmt -check` across `terraform/`
+- `terraform init` + `terraform validate` for dev and prod
+- `helm lint` and `helm template` for dev and prod values
 - Docker image build
-- Trivy image scan for high and critical vulnerabilities
+- Trivy scan (HIGH and CRITICAL vulnerabilities)
 
-### Terraform
+### Terraform — `.github/workflows/terraform.yml`
 
-`.github/workflows/terraform.yml` runs after successful CI on `dev`, and also supports manual `plan` or `apply` for `dev` and `prod`.
+Triggers automatically after CI succeeds on `dev`. Also supports manual dispatch.
 
-Required GitHub secrets:
+**Manual inputs:**
 
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
+| Input                 | Options                  | Default         |
+|-----------------------|--------------------------|-----------------|
+| `environment`         | `dev` / `prod`           | `dev`           |
+| `action`              | `plan` / `apply` / `destroy` | `plan`      |
+| `allowed_cidr_blocks` | JSON CIDR list           | `["0.0.0.0/0"]` |
 
-Recommended GitHub variables:
+> `destroy` is restricted to the `dev` environment only.
 
-- `AWS_REGION`, defaults to `ap-south-1`
-- `ALLOWED_CIDR_BLOCKS`, JSON list used for EKS public API access
+On `apply`, Terraform outputs (cluster name, endpoint, VPC ID, subnets) are exported as a workflow artifact consumed by the CD job.
 
-Example:
+**Required secrets:** `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` · `AWS_REGION`
 
-```json
-["203.0.113.10/32"]
-```
+### CD — `.github/workflows/cd.yml`
 
-### CD
+Triggers automatically after Terraform succeeds.
 
-`.github/workflows/cd.yml` runs after the Terraform workflow succeeds on `dev`, and supports manual deployment to `dev` or `prod`.
+1. Downloads the `terraform-outputs` artifact from the triggering Terraform run
+2. Parses the cluster name dynamically from `terraform-output.json`
+3. Configures `kubectl` against the correct EKS cluster
+4. Creates the Kubernetes namespace if absent
+5. Runs `helm upgrade --install` with `--atomic` and `--wait`
+6. Verifies rollout with `helm status` and `kubectl rollout status`
 
-It builds and pushes the image to GitHub Container Registry, installs or upgrades the AWS Load Balancer Controller, applies Kubernetes platform manifests, deploys the Helm release, and verifies the rollout.
+**Required secrets:** `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` · `AWS_REGION`
 
-## Deployment
+---
+
+## Getting Started
+
+### Prerequisites
+
+- AWS CLI v2
+- Terraform >= 1.5
+- kubectl
+- Helm >= 3
+- An AWS account with permissions to create VPCs, EKS clusters, and IAM roles
 
 ### 1. Bootstrap Remote State
 
-Run once for each environment that needs its own state backend:
+Run once per environment before any Terraform apply:
 
 ```bash
 cd terraform/global/s3-backend
@@ -107,28 +138,23 @@ terraform apply -var="env=dev"
 terraform apply -var="env=prod"
 ```
 
-### 2. Deploy Infrastructure
+### 2. Provision Infrastructure
 
 ```bash
 cd terraform/envs/dev
 terraform init
-terraform plan -var='allowed_cidr_blocks=["203.0.113.10/32"]'
+terraform plan  -var='allowed_cidr_blocks=["203.0.113.10/32"]'
 terraform apply -var='allowed_cidr_blocks=["203.0.113.10/32"]'
 ```
 
-For prod:
-
-```bash
-cd terraform/envs/prod
-terraform init
-terraform plan -var='allowed_cidr_blocks=["203.0.113.10/32"]'
-terraform apply -var='allowed_cidr_blocks=["203.0.113.10/32"]'
-```
+Repeat under `terraform/envs/prod` for the production environment.
 
 ### 3. Configure kubectl
 
 ```bash
-aws eks update-kubeconfig --region ap-south-1 --name eks-cluster-dev
+aws eks update-kubeconfig \
+  --region ap-south-1 \
+  --name eks-cluster-dev
 ```
 
 ### 4. Apply Platform Manifests
@@ -142,63 +168,54 @@ kubectl apply -f k8s/rbac/
 kubectl apply -f k8s/storage/
 ```
 
-### 5. Deploy the App
+### 5. Deploy the Application
 
 ```bash
-helm upgrade --install hello-app ./helm/apps/hello-app \
-  --namespace dev \
+helm upgrade --install eks-production ./helm/eks-production-platform \
+  --namespace production \
   --create-namespace \
-  --values helm/apps/hello-app/values.yaml \
-  --values helm/apps/hello-app/values-dev.yml
+  --values helm/eks-production-platform/values.yaml \
+  --atomic \
+  --wait
 ```
 
-## Validation Proof
+---
 
-These checks were run locally from this repository after the fixes:
+## GitHub Actions Setup
 
-| Check | Result |
-|---|---|
-| `terraform fmt -recursive terraform` | Passed |
-| `terraform init -backend=false` in `terraform/envs/dev` | Passed |
-| `terraform validate` in `terraform/envs/dev` | Passed: configuration is valid |
-| `terraform init -backend=false` in `terraform/envs/prod` | Passed |
-| `terraform validate` in `terraform/envs/prod` | Passed: configuration is valid |
-| `rg -n "[^[:ascii:]]" README.md terraform helm k8s docker .github` | Passed: no matches after cleanup |
+Add the following secrets to the repository under **Settings → Secrets and variables → Actions**:
 
-Local limitations:
+| Secret                  | Description                          |
+|-------------------------|--------------------------------------|
+| `AWS_ACCESS_KEY_ID`     | IAM access key                       |
+| `AWS_SECRET_ACCESS_KEY` | IAM secret key                       |
+| `AWS_REGION`            | Target region (e.g. `ap-south-1`)    |
 
-- Helm is not installed on this workstation, so `helm lint` and `helm template` are validated by GitHub Actions rather than locally.
-- Docker is not installed on this workstation, so image build and Trivy scan are validated by GitHub Actions rather than locally.
-- GitHub CLI is installed but not authenticated on this workstation, so the real GitHub Actions workflow could not be dispatched locally with `gh`.
+Push to the `dev` branch to trigger the full CI → Terraform → CD pipeline automatically.
 
-## GitHub Actions Proof Checklist
-
-After pushing this branch, verify the pipeline with:
-
-```bash
-gh auth login
-gh workflow run CI --ref dev
-gh run list --workflow CI --limit 5
-```
-
-Expected result:
-
-- CI completes successfully.
-- Terraform workflow starts after CI succeeds on `dev`.
-- CD workflow starts after Terraform succeeds on `dev`.
-- Manual `prod` workflow dispatch remains gated by the `prod` environment.
+---
 
 ## Teardown
 
 ```bash
-helm uninstall hello-app -n dev
-helm uninstall hello-app -n prod
+# Remove the Helm release
+helm uninstall eks-production -n production
 
-cd terraform/envs/dev
-terraform destroy
-
-cd ../prod
-terraform destroy
+# Destroy infrastructure (dev first, prod separately)
+cd terraform/envs/dev && terraform destroy
+cd terraform/envs/prod && terraform destroy
 ```
 
-Destroy the S3 backend last. Empty the state bucket before destroying it because Terraform cannot delete a non-empty versioned bucket.
+> Destroy the S3 backend last. The state bucket must be emptied manually before Terraform can delete it (versioned buckets are non-empty by default).
+
+---
+
+## Key Design Decisions
+
+**Cluster name read from Terraform outputs, not hardcoded.** The CD workflow parses `cluster_name` from the `terraform-output.json` artifact, so renaming the cluster in Terraform never silently breaks the deploy step.
+
+**Artifact pinned to the exact triggering run.** The CD workflow downloads the Terraform outputs artifact using `run_id: ${{ github.event.workflow_run.id }}`, preventing a race condition where a newer artifact from a different run could be consumed.
+
+**Destroy gated to dev only.** The `Guard Destroy Environment` step in the Terraform workflow exits with an error if `destroy` is requested against `prod`, preventing accidental production teardown via manual dispatch.
+
+**OIDC-ready.** AWS credentials are currently configured with access keys. To switch to keyless authentication, uncomment `role-to-assume` in the workflow files and remove the key/secret inputs.
