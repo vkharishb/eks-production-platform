@@ -1,8 +1,8 @@
 replicaCount: 1
 
 image:
-  repository: hello-app
-  tag: "ci"
+  repository: vkharishb/eks-app
+  tag: "latest"
   pullPolicy: IfNotPresent
 
 service:
