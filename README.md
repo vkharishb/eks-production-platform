@@ -112,7 +112,7 @@ Triggers automatically after Terraform succeeds.
 4. Verifies rollout with `helm status` and `kubectl rollout status`
 5. 
 
-**Required secrets:** `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` · `AWS_REGION`
+**Required secrets:** `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` · `AWS_REGION` · `AWS_ROLE_ARN`
 
 ---
 
