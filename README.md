@@ -106,12 +106,11 @@ On `apply`, Terraform outputs (cluster name, endpoint, VPC ID, subnets) are expo
 
 Triggers automatically after Terraform succeeds.
 
-1. Downloads the `terraform-outputs` artifact from the triggering Terraform run
-2. Parses the cluster name dynamically from `terraform-output.json`
-3. Configures `kubectl` against the correct EKS cluster
-4. Creates the Kubernetes namespace if absent
-5. Runs `helm upgrade --install` with `--atomic` and `--wait`
-6. Verifies rollout with `helm status` and `kubectl rollout status`
+1. Configures `kubectl` against the correct EKS cluster
+2. Creates the Kubernetes namespace if absent
+3. Runs `helm upgrade --install` with `--atomic` and `--wait`
+4. Verifies rollout with `helm status` and `kubectl rollout status`
+5. 
 
 **Required secrets:** `AWS_ACCESS_KEY_ID` · `AWS_SECRET_ACCESS_KEY` · `AWS_REGION`
 
