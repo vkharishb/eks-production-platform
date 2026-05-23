@@ -1,0 +1,180 @@
+name: Terraform
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - dev
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Terraform environment
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
+
+      action:
+        description: Terraform action
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+      allowed_cidr_blocks:
+        description: JSON list of public CIDRs allowed to reach the EKS API
+        required: true
+        default: '["0.0.0.0/0"]'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+
+jobs:
+  dev-apply-after-ci:
+    name: Terraform Workflow
+    if: github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'dev'
+
+    runs-on: ubuntu-latest
+    environment: dev
+
+    env:
+      TF_VAR_allowed_cidr_blocks: '["0.0.0.0/0"]'
+      TF_CIDR_BLOCKS: '["0.0.0.0/0"]'
+
+    defaults:
+      run:
+        working-directory: terraform/envs/dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Check Terraform Formatting
+        run: terraform fmt -check -recursive ../..
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Show EKS API CIDRs
+        run: echo "Using allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -input=false \
+            -out=tfplan \
+            -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+
+      - name: Terraform Apply
+        run: terraform apply -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+
+  manual:
+    # added missing closing parenthesis in job name
+    name: Manual ${{ inputs.action }} (${{ inputs.environment }})
+
+    if: github.event_name == 'workflow_dispatch'
+
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    env:
+      TF_VAR_allowed_cidr_blocks: ${{ inputs.allowed_cidr_blocks }}
+      TF_CIDR_BLOCKS: ${{ inputs.allowed_cidr_blocks }}
+
+    defaults:
+      run:
+        working-directory: terraform/envs/${{ inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Check Terraform Formatting
+        run: terraform fmt -check -recursive ../..
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Show EKS API CIDRs
+        run: echo "Using allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+
+      - name: Guard Destroy Environment
+        if: inputs.action == 'destroy' && inputs.environment != 'dev'
+        run: |
+          echo "Terraform destroy is only allowed for the dev environment."
+          exit 1
+
+      - name: Terraform Plan
+        if: inputs.action != 'destroy'
+        run: |
+          terraform plan \
+            -input=false \
+            -out=tfplan \
+            -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+
+      - name: Terraform Destroy Plan
+        if: inputs.action == 'destroy' && inputs.environment == 'dev'
+        run: |
+          terraform plan -destroy \
+            -input=false \
+            -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
+
+      - name: Terraform Apply
+        if: inputs.action == 'apply'
+        run: terraform apply -input=false -auto-approve -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}" tfplan
+
+      - name: Terraform Destroy
+        if: inputs.action == 'destroy' && inputs.environment == 'dev'
+        run: |
+          terraform destroy \
+            -input=false \
+            -auto-approve \
+            -var="allowed_cidr_blocks=${TF_CIDR_BLOCKS}"
